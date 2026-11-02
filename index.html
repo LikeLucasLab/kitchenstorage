@@ -5,11 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mein Vorratsregal</title>
 <style>
-  body:not(.authenticated) > header,
-body:not(.authenticated) > main,
-body:not(.authenticated) > .fab {
-  display: none;
-}
 :root{--bg:#f6f1e9;--card:#fffdf8;--ink:#2b2418;--mut:#7a6e5c;--wood:#b98a56;--acc:#2f6b4f;--ok:#2f6b4f;--warn:#b9791a;--bad:#b3392f;--line:#e3d9c8;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1914;--card:#27231c;--ink:#f1eadb;--mut:#a89c88;--wood:#8a6538;--acc:#6fbf97;--ok:#6fbf97;--warn:#e0a247;--bad:#e46b5f;--line:#3a3429}}
@@ -56,9 +51,44 @@ video{width:100%;border-radius:12px;background:#000;aspect-ratio:4/3;object-fit:
 .batch .stepper input{width:56px;padding:10px 4px}
 #photo{width:84px;height:84px;font-size:36px;cursor:pointer;border:1px dashed var(--line)}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:50;display:none;max-width:90vw;text-align:center}
+
+body:not(.authenticated) > header,
+body:not(.authenticated) > main,
+body:not(.authenticated) > .fab { display:none; }
+[hidden] { display:none !important; }
+
 </style>
 </head>
 <body>
+
+<section id="auth" style="padding:30px 18px;max-width:440px;margin:20px auto">
+  <h1 style="font-size:24px;margin-bottom:8px">🥫 Mein Vorratsregal</h1>
+  <h2 id="authTitle" style="font-size:19px">Willkommen!</h2>
+  <p id="authMsg" style="color:var(--mut)">Melde dich an oder erstelle ein Konto.</p>
+
+  <div id="loginBox">
+    <label for="authEmail">E-Mail-Adresse</label>
+    <input id="authEmail" type="email" autocomplete="email" placeholder="name@beispiel.de">
+    <label for="authPassword">Passwort</label>
+    <input id="authPassword" type="password" autocomplete="current-password" placeholder="Mindestens 8 Zeichen">
+    <div class="btns">
+      <button id="loginBtn" class="pri">Anmelden</button>
+      <button id="registerBtn">Registrieren</button>
+    </div>
+  </div>
+
+  <div id="familyBox" hidden>
+    <h3>Deinen Haushalt einrichten</h3>
+    <p>Erstelle einen gemeinsamen Haushalt. Die Vorräte werden anschließend online gespeichert.</p>
+    <label for="familyName">Familien- oder Haushaltsname</label>
+    <input id="familyName" placeholder="z. B. Familie Müller">
+    <div class="btns">
+      <button id="createFamilyBtn" class="pri">Haushalt erstellen</button>
+      <button id="logoutBtn">Abmelden</button>
+    </div>
+  </div>
+</section>
+
 <header>
   <h1><span>🥫 Mein Vorratsregal</span><span id="sync"></span></h1>
   <input id="q" type="search" placeholder="Suchen: Name, Marke, Barcode …">
@@ -108,18 +138,7 @@ video{width:100%;border-radius:12px;background:#000;aspect-ratio:4/3;object-fit:
 <script>
 const SHELVES=["Konserven & Gläser","Nudeln, Reis & Getreide","Getränke","Gewürze & Öle","Süßes & Snacks","Frühstück & Backen","Sonstiges"];
 const LK="vorratsregal:v2";
-
-const SUPABASE_URL = "https://iqskwbrfuulvwtjvufig.supabase.co";
-const SUPABASE_KEY = "sb_publishable_4nSIm16AxpZYLDZzdSUyPg_z7lTqcRw";
-
-const sb = window.supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_KEY
-);
-
-let P={},familyId=null,filter="stock",mode="in",
-cur=null,stream=null,reader=null,scanning=false,
-legacyP={};
+let P={},familyId=null,filter="stock",mode="in",cur=null,stream=null,reader=null,scanning=false,legacyP={};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 $("fShelf").innerHTML=SHELVES.map(s=>`<option>${esc(s)}</option>`).join("");
@@ -127,53 +146,39 @@ function toast(t){const e=$("toast");e.textContent=t;e.style.display="block";cle
 const total=p=>(p.batches||[]).reduce((s,b)=>s+b.qty,0);
 function norm(p){const m={};(p.batches||[]).forEach(b=>{if(b.qty>0)m[b.mhd||""]=(m[b.mhd||""]||0)+b.qty});
   p.batches=Object.keys(m).sort((a,b)=>(a||"9999").localeCompare(b||"9999")).map(k=>({mhd:k,qty:m[k]}));return p}
-function persistLocal(){try{localStorage.setItem(LK,JSON.stringify(P))}catch(e){}}
+function persistLocal(){
+  const key=familyId?LK+":"+familyId:LK;
+  try{localStorage.setItem(key,JSON.stringify(P))}catch(e){}
+}
 function setSync(t){$("sync").textContent=t}
 
-
-function persistLocal(){
-  const key = familyId ? LK + ":" + familyId : LK;
-  try {
-    localStorage.setItem(key, JSON.stringify(P));
-  } catch(e) {}
-}
-
 async function savep(p){
-  p.updated = Date.now();
-  P[p.id] = p;
+  p.updated=Date.now();
+  P[p.id]=p;
   render();
   persistLocal();
-
-  if(!familyId) return;
-
-  const {error} = await sb.from("products").upsert({
-    family_id: familyId,
-    product_id: p.id,
-    data: p,
-    updated_at: new Date().toISOString()
-  }, {
-    onConflict: "family_id,product_id"
-  });
-
+  if(!familyId)return;
+  setSync("☁️ speichert …");
+  const {error}=await sb.from("products").upsert({
+    family_id:familyId,
+    product_id:p.id,
+    data:p,
+    updated_at:new Date().toISOString()
+  },{onConflict:"family_id,product_id"});
   if(error){
-    toast("Speichern fehlgeschlagen: " + error.message);
+    toast("Speichern fehlgeschlagen: "+error.message);
     setSync("⚠️ Speicherfehler");
-  }
+  }else setSync("☁️ synchronisiert");
 }
-
 async function delp(id){
   delete P[id];
   render();
   persistLocal();
-
-  if(!familyId) return;
-
-  const {error} = await sb.from("products")
-    .delete()
-    .eq("family_id", familyId)
-    .eq("product_id", id);
-
-  if(error) toast("Löschen fehlgeschlagen");
+  if(!familyId)return;
+  const {error}=await sb.from("products").delete()
+    .eq("family_id",familyId).eq("product_id",id);
+  if(error){toast("Löschen fehlgeschlagen: "+error.message);setSync("⚠️ Löschfehler")}
+  else setSync("☁️ synchronisiert");
 }
 
 function mhdInfo(d){
@@ -291,283 +296,220 @@ $("iSave").onclick=async()=>{
 };
 $("iDel").onclick=()=>{if(confirm("Produkt komplett löschen?")){$("dItem").close();delp(cur.id)}};
 
+/* Anmeldung, Haushalt und Supabase-Synchronisierung */
+const SUPABASE_URL="https://iqskwbrfuulvwtjvufig.supabase.co";
+const SUPABASE_KEY="sb_publishable_4nSIm16AxpZYLDZzdSUyPg_z7lTqcRw";
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let currentUser=null;
+let realtimeChannel=null;
+let openingFamily=false;
+
 function authMessage(message){
-  $("authMsg").textContent = message;
+  $("authMsg").textContent=message;
 }
 
-$("registerBtn").onclick = async () => {
-  const email = $("authEmail").value.trim();
-  const password = $("authPassword").value;
-
-  if(!email || password.length < 8){
-    authMessage("Bitte E-Mail und mindestens 8 Zeichen Passwort eingeben.");
+$("registerBtn").onclick=async()=>{
+  const email=$("authEmail").value.trim();
+  const password=$("authPassword").value;
+  if(!email||password.length<8){
+    authMessage("Bitte gib eine gültige E-Mail-Adresse und mindestens 8 Zeichen Passwort ein.");
     return;
   }
-
-  const {data,error} = await sb.auth.signUp({
-    email,
-    password
-  });
-
-  if(error){
-    authMessage(error.message);
-    return;
-  }
-
+  $("registerBtn").disabled=true;
+  const {data,error}=await sb.auth.signUp({email,password});
+  $("registerBtn").disabled=false;
+  if(error){authMessage(error.message);return;}
   if(!data.session){
-    authMessage("Bitte bestätige deine E-Mail. Danach kannst du dich anmelden.");
-  } else {
-    authMessage("Konto erstellt!");
+    authMessage("Dein Konto wurde angelegt. Bitte bestätige zuerst die E-Mail-Adresse über den Link in deinem Postfach. Danach kannst du dich anmelden.");
+  }else{
+    authMessage("Konto erstellt. Du kannst jetzt deinen Haushalt einrichten.");
+    await handleSession(data.session);
   }
 };
 
-$("loginBtn").onclick = async () => {
-  const email = $("authEmail").value.trim();
-  const password = $("authPassword").value;
-
-  const {error} = await sb.auth.signInWithPassword({
-    email,
-    password
-  });
-
-  if(error) authMessage(error.message);
+$("loginBtn").onclick=async()=>{
+  const email=$("authEmail").value.trim();
+  const password=$("authPassword").value;
+  if(!email||!password){authMessage("Bitte E-Mail-Adresse und Passwort eingeben.");return;}
+  $("loginBtn").disabled=true;
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  $("loginBtn").disabled=false;
+  if(error){authMessage(error.message);return;}
+  await handleSession(data.session);
 };
 
-$("createFamilyBtn").onclick = async () => {
-  const name = $("familyName").value.trim();
-  if(!name){
-    authMessage("Bitte gib einen Familiennamen ein.");
-    return;
-  }
-
-  const {data,error} = await sb.rpc("create_family", {
-    family_name: name
-  });
-
-  if(error){
-    authMessage(error.message);
-    return;
-  }
-
+$("createFamilyBtn").onclick=async()=>{
+  const name=$("familyName").value.trim();
+  if(!name){authMessage("Bitte gib einen Haushaltsnamen ein.");return;}
+  $("createFamilyBtn").disabled=true;
+  const {data,error}=await sb.rpc("create_family",{family_name:name});
+  $("createFamilyBtn").disabled=false;
+  if(error){authMessage("Haushalt konnte nicht erstellt werden: "+error.message);return;}
   await connectFamily(data);
 };
 
-$("logoutBtn").onclick = async () => {
-  await sb.auth.signOut();
+$("logoutBtn").onclick=async()=>{
+  const {error}=await sb.auth.signOut();
+  if(error)authMessage("Abmelden fehlgeschlagen: "+error.message);
 };
 
 async function handleSession(session){
   if(!session){
+    currentUser=null;
+    familyId=null;
     document.body.classList.remove("authenticated");
-    $("loginBox").hidden = false;
-    $("familyBox").hidden = true;
+    $("auth").hidden=false;
+    $("loginBox").hidden=false;
+    $("familyBox").hidden=true;
+    $("authTitle").textContent="Willkommen!";
+    authMessage("Melde dich an oder erstelle ein Konto.");
     return;
   }
+  currentUser=session.user;
+  $("auth").hidden=false;
+  $("loginBox").hidden=true;
+  $("familyBox").hidden=false;
+  $("authTitle").textContent="Haushalt einrichten";
+  authMessage("Dein Konto ist angemeldet. Erstelle einen Haushalt, um deine Vorräte zu synchronisieren.");
 
-  currentUser = session.user;
-
-  const {data,error} = await sb
-    .from("family_members")
+  const {data,error}=await sb.from("family_members")
     .select("family_id,role")
-    .eq("user_id", currentUser.id)
+    .eq("user_id",currentUser.id)
     .limit(1)
     .maybeSingle();
 
   if(error){
-    authMessage("Familienzugriff konnte nicht geprüft werden.");
+    authMessage("Haushaltszugriff konnte nicht geprüft werden: "+error.message);
     return;
   }
-
-  if(!data){
-    $("authTitle").textContent = "Familie einrichten";
-    $("loginBox").hidden = true;
-    $("familyBox").hidden = false;
-    return;
+  if(data){
+    await connectFamily(data.family_id);
   }
-
-  await connectFamily(data.family_id);
 }
-
-let currentUser = null;
-let realtimeChannel = null;
 
 async function connectFamily(id){
-  familyId = id;
+  if(openingFamily)return;
+  openingFamily=true;
+  try{
+    familyId=id;
+    setSync("☁️ lädt …");
 
-  const {data,error} = await sb
-    .from("products")
-    .select("product_id,data")
-    .eq("family_id", familyId);
+    const {data,error}=await sb.from("products")
+      .select("product_id,data")
+      .eq("family_id",familyId);
 
-  if(error){
-    authMessage("Produkte konnten nicht geladen werden.");
-    return;
-  }
-
-  const cloud = {};
-  (data || []).forEach(row => {
-    cloud[row.product_id] = {
-      ...row.data,
-      id: row.product_id
-    };
-  });
-
-  if(Object.keys(cloud).length === 0){
-    const localKey = LK + ":" + familyId;
-    let local = {};
-
-    try {
-      local = JSON.parse(localStorage.getItem(localKey) || "null") || {};
-    } catch(e) {}
-
-    if(!Object.keys(local).length){
-      local = legacyP;
+    if(error){
+      familyId=null;
+      authMessage("Vorräte konnten nicht geladen werden: "+error.message);
+      setSync("⚠️ Ladefehler");
+      return;
     }
 
-    if(Object.keys(local).length &&
-       confirm("Lokale Vorräte in die neue Familien-Datenbank übernehmen?")){
-      P = local;
+    const cloud={};
+    (data||[]).forEach(row=>{
+      cloud[row.product_id]={...row.data,id:row.product_id};
+    });
 
-      const rows = Object.values(P).map(p => ({
-        family_id: familyId,
-        product_id: p.id,
-        data: p,
-        updated_at: new Date().toISOString()
-      }));
+    if(Object.keys(cloud).length===0){
+      let local={};
+      try{
+        local=JSON.parse(localStorage.getItem(LK+":"+familyId)||"null")||{};
+      }catch(e){}
+      if(!Object.keys(local).length)local=legacyP;
 
-      const {error:uploadError} = await sb
-        .from("products")
-        .upsert(rows, {
-          onConflict: "family_id,product_id"
-        });
-
-      if(uploadError){
-        toast("Datenübernahme fehlgeschlagen");
-        return;
+      if(Object.keys(local).length&&confirm("Möchtest du deine bisher lokal gespeicherten Vorräte in diesen Haushalt übernehmen?")){
+        P=local;
+        const rows=Object.values(P).map(p=>({
+          family_id:familyId,
+          product_id:p.id,
+          data:p,
+          updated_at:new Date().toISOString()
+        }));
+        const {error:uploadError}=await sb.from("products")
+          .upsert(rows,{onConflict:"family_id,product_id"});
+        if(uploadError){
+          authMessage("Datenübernahme fehlgeschlagen: "+uploadError.message);
+          setSync("⚠️ Übernahmefehler");
+          return;
+        }
+      }else{
+        P={};
       }
-    } else {
-      P = {};
+    }else{
+      P=cloud;
     }
-  } else {
-    P = cloud;
-  }
 
-  document.body.classList.add("authenticated");
-  $("authTitle").textContent = "Angemeldet";
-  $("auth").hidden = true;
+    document.body.classList.add("authenticated");
+    $("auth").hidden=true;
+    persistLocal();
+    render();
+    setSync("☁️ synchronisiert");
 
-  persistLocal();
-  render();
-  setSync("☁️ synchronisiert");
+    if(realtimeChannel){
+      await sb.removeChannel(realtimeChannel);
+      realtimeChannel=null;
+    }
 
-  if(realtimeChannel){
-    await sb.removeChannel(realtimeChannel);
-  }
-
-  realtimeChannel = sb
-    .channel("family-products-" + familyId)
-    .on("postgres_changes", {
-      event: "*",
-      schema: "public",
-      table: "products",
-      filter: "family_id=eq." + familyId
-    }, async () => {
-      const {data,error} = await sb
-        .from("products")
-        .select("product_id,data")
-        .eq("family_id", familyId);
-
-      if(error) return;
-
-      P = {};
-      (data || []).forEach(row => {
-        P[row.product_id] = {
-          ...row.data,
-          id: row.product_id
-        };
+    realtimeChannel=sb.channel("family-products-"+familyId)
+      .on("postgres_changes",{
+        event:"*",
+        schema:"public",
+        table:"products",
+        filter:"family_id=eq."+familyId
+      },async()=>{
+        const activeFamily=familyId;
+        const {data:latest,error:refreshError}=await sb.from("products")
+          .select("product_id,data")
+          .eq("family_id",activeFamily);
+        if(refreshError||familyId!==activeFamily)return;
+        P={};
+        (latest||[]).forEach(row=>{
+          P[row.product_id]={...row.data,id:row.product_id};
+        });
+        persistLocal();
+        render();
+        setSync("☁️ live");
+      })
+      .subscribe(status=>{
+        if(status==="SUBSCRIBED")setSync("☁️ live");
+        if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")setSync("⚠️ Live-Sync gestört");
       });
-
-      persistLocal();
-      render();
-      setSync("☁️ live");
-    })
-    .subscribe();
+  }finally{
+    openingFamily=false;
+  }
 }
 
-sb.auth.onAuthStateChange((event,session) => {
-  if(event === "SIGNED_IN"){
-    setTimeout(() => handleSession(session), 0);
-  }
-
-  if(event === "SIGNED_OUT"){
-    familyId = null;
-    P = {};
+sb.auth.onAuthStateChange((event,session)=>{
+  if(event==="SIGNED_OUT"){
+    if(realtimeChannel){sb.removeChannel(realtimeChannel);realtimeChannel=null;}
+    familyId=null;
+    P={};
     document.body.classList.remove("authenticated");
-    $("auth").hidden = false;
-    $("loginBox").hidden = false;
-    $("familyBox").hidden = true;
+    $("auth").hidden=false;
+    $("loginBox").hidden=false;
+    $("familyBox").hidden=true;
+    $("authTitle").textContent="Willkommen!";
+    authMessage("Du wurdest abgemeldet.");
     render();
     setSync("");
   }
 });
 
-(async () => {
-  try {
-    const old = localStorage.getItem(LK);
-    if(old) legacyP = JSON.parse(old) || {};
-  } catch(e) {}
-
+(async()=>{
+  try{
+    const old=localStorage.getItem(LK);
+    if(old)legacyP=JSON.parse(old)||{};
+  }catch(e){}
   render();
   setSync("📱 lokal");
-
-  const {data,error} = await sb.auth.getSession();
-
+  const {data,error}=await sb.auth.getSession();
   if(error){
-    authMessage("Anmeldung konnte nicht geladen werden.");
+    authMessage("Anmeldestatus konnte nicht geladen werden: "+error.message);
     return;
   }
-
-  if(data.session){
-    await handleSession(data.session);
-  }
+  if(data.session)await handleSession(data.session);
 })();
-
 </script>
 </body>
-
-
-<section id="auth" style="padding:30px 18px;max-width:440px;margin:auto">
-  <h1>🥫 Mein Vorratsregal</h1>
-  <h2 id="authTitle">Willkommen!</h2>
-  <p id="authMsg">Melde dich an oder erstelle ein Konto.</p>
-
-  <div id="loginBox">
-    <label>E-Mail-Adresse</label>
-    <input id="authEmail" type="email" autocomplete="email"
-      placeholder="name@beispiel.de">
-
-    <label>Passwort</label>
-    <input id="authPassword" type="password"
-      autocomplete="current-password" placeholder="Passwort">
-
-    <div class="btns">
-      <button id="loginBtn" class="pri">Anmelden</button>
-      <button id="registerBtn">Registrieren</button>
-    </div>
-  </div>
-
-  <div id="familyBox" hidden>
-    <h3>Deine Familie</h3>
-    <p>Erstelle einen gemeinsamen Haushalt für eure Vorräte.</p>
-    <label>Familienname</label>
-    <input id="familyName" placeholder="z. B. Familie Müller">
-    <div class="btns">
-      <button id="createFamilyBtn" class="pri">
-        Familie erstellen
-      </button>
-      <button id="logoutBtn">Abmelden</button>
-    </div>
-  </div>
-</section>
-
 </html>
