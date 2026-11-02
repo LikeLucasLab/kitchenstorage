@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mein Vorratsregal</title>
+<style>
+:root{--bg:#f6f1e9;--card:#fffdf8;--ink:#2b2418;--mut:#7a6e5c;--wood:#b98a56;--acc:#2f6b4f;--ok:#2f6b4f;--warn:#b9791a;--bad:#b3392f;--line:#e3d9c8;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1914;--card:#27231c;--ink:#f1eadb;--mut:#a89c88;--wood:#8a6538;--acc:#6fbf97;--ok:#6fbf97;--warn:#e0a247;--bad:#e46b5f;--line:#3a3429}}
+:root[data-theme="dark"]{--bg:#1c1914;--card:#27231c;--ink:#f1eadb;--mut:#a89c88;--wood:#8a6538;--acc:#6fbf97;--ok:#6fbf97;--warn:#e0a247;--bad:#e46b5f;--line:#3a3429}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;max-width:760px;margin-inline:auto;padding-bottom:90px}
+header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:12px 14px 8px;z-index:5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
+h1{font-size:20px;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
+#sync{font-size:12px;font-weight:400;color:var(--mut)}
+input,select,button{font:inherit;color:inherit}
+input,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.seg{display:flex;gap:6px;margin-top:8px}
+.seg button{flex:1;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer}
+.seg button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.shelf{margin:14px 14px 0}
+.shelf h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:0 0 6px}
+.board{display:flex;flex-wrap:wrap;gap:8px;padding:10px 8px 12px;border-bottom:10px solid var(--wood);border-radius:6px 6px 0 0;background:linear-gradient(var(--card),var(--bg));min-height:70px}
+.item{flex:1 1 220px;display:flex;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;text-align:left;cursor:pointer}
+.item.out{opacity:.45}
+.ph{width:56px;height:56px;border-radius:8px;object-fit:cover;background:var(--bg);flex:none;display:flex;align-items:center;justify-content:center;font-size:26px}
+.item .t{flex:1;min-width:0}
+.item b{display:block;font-size:14px;overflow-wrap:anywhere}
+.item small{color:var(--mut)}
+.row{display:flex;justify-content:space-between;align-items:center;margin-top:4px;gap:6px}
+.qty{font-weight:700}
+.badge{font-size:12px;padding:2px 7px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+.empty{color:var(--mut);font-size:14px;padding:4px}
+.fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--acc);color:#fff;border:0;border-radius:99px;padding:16px 22px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.3);cursor:pointer;z-index:6}
+dialog{border:0;border-radius:16px;padding:16px;width:min(92vw,440px);max-height:90vh;background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 3px}
+.btns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.btns button{flex:1;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);cursor:pointer}
+.btns .pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+.btns .del{color:var(--bad)}
+video{width:100%;border-radius:12px;background:#000;aspect-ratio:4/3;object-fit:cover}
+#st{font-size:14px;color:var(--mut);margin:8px 0}
+.stepper{display:flex;gap:8px;align-items:center}
+.stepper button{width:44px;height:44px;flex:none;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:20px;cursor:pointer}
+.stepper input{text-align:center}
+.batch{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:8px}
+.batch .stepper input{width:56px;padding:10px 4px}
+#photo{width:84px;height:84px;font-size:36px;cursor:pointer;border:1px dashed var(--line)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:50;display:none;max-width:90vw;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>🥫 Mein Vorratsregal</span><span id="sync"></span></h1>
+  <input id="q" type="search" placeholder="Suchen: Name, Marke, Barcode …">
+  <div class="seg" id="seg">
+    <button data-f="stock" class="on">Vorrätig</button>
+    <button data-f="all">Alle</button>
+    <button data-f="out">Aufgebraucht</button>
+  </div>
+</header>
+<main id="shelves"></main>
+<button class="fab" id="scan">📷 Scannen</button>
+<div id="toast"></div>
+
+<dialog id="dScan">
+  <div class="seg" id="modeSeg" style="margin:0 0 10px">
+    <button data-m="in" class="on">➕ Einlagern</button>
+    <button data-m="out">➖ Entnehmen</button>
+  </div>
+  <video id="vid" playsinline muted></video>
+  <div id="st">Kamera wird gestartet …</div>
+  <label>Oder Barcode eintippen</label>
+  <div class="stepper"><input id="manual" inputmode="numeric" placeholder="z. B. 4012345678901"><button id="mgo" style="width:auto;padding:0 14px;font-size:16px">OK</button></div>
+  <div class="btns"><button id="scanClose">Abbrechen</button></div>
+</dialog>
+
+<dialog id="dItem">
+  <div id="iHint" style="font-size:13px;color:var(--mut)"></div>
+  <div style="display:flex;gap:12px;align-items:flex-end;margin-top:8px">
+    <div id="photo" class="ph" title="Foto aufnehmen">📷</div>
+    <div style="flex:1"><label style="margin-top:0">Produktname</label><input id="fName"></div>
+  </div>
+  <input id="file" type="file" accept="image/*" capture="environment" hidden>
+  <label>Marke (optional)</label><input id="fBrand">
+  <label>Regal</label><select id="fShelf"></select>
+  <label>Bestand nach Haltbarkeit (MHD)</label>
+  <div id="bList"></div>
+  <button id="addB" style="width:100%;padding:9px;border:1px dashed var(--line);border-radius:10px;background:none;cursor:pointer">+ Weiteres MHD hinzufügen</button>
+  <div class="btns">
+    <button id="iSave" class="pri">Speichern</button>
+    <button id="iDel" class="del">Löschen</button>
+    <button id="iClose">Schließen</button>
+  </div>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script>
+const SHELVES=["Konserven & Gläser","Nudeln, Reis & Getreide","Getränke","Gewürze & Öle","Süßes & Snacks","Frühstück & Backen","Sonstiges"];
+const LK="vorratsregal:v2";
+let P={},dbc=null,filter="stock",mode="in",cur=null,stream=null,reader=null,scanning=false,migrated=false;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+$("fShelf").innerHTML=SHELVES.map(s=>`<option>${esc(s)}</option>`).join("");
+function toast(t){const e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.display="none",3000)}
+const total=p=>(p.batches||[]).reduce((s,b)=>s+b.qty,0);
+function norm(p){const m={};(p.batches||[]).forEach(b=>{if(b.qty>0)m[b.mhd||""]=(m[b.mhd||""]||0)+b.qty});
+  p.batches=Object.keys(m).sort((a,b)=>(a||"9999").localeCompare(b||"9999")).map(k=>({mhd:k,qty:m[k]}));return p}
+function persistLocal(){try{localStorage.setItem(LK,JSON.stringify(P))}catch(e){}}
+function setSync(t){$("sync").textContent=t}
+
+async function savep(p){
+  p.updated=Date.now();P[p.id]=p;render();
+  if(dbc){try{await dbc.collection("products").doc(p.id).set(JSON.parse(JSON.stringify(p)))}catch(e){toast("Speichern fehlgeschlagen")}}
+  else persistLocal();
+}
+async function delp(id){delete P[id];render();if(dbc){try{await dbc.collection("products").doc(id).delete()}catch(e){}}else persistLocal()}
+
+function mhdInfo(d){
+  if(!d)return{t:"kein MHD",c:""};
+  const days=Math.floor((new Date(d+"T12:00:00")-new Date())/864e5);
+  const f=new Date(d+"T12:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit"});
+  if(days<0)return{t:"abgelaufen "+f,c:"bad"};
+  if(days<=30)return{t:"bald: "+f,c:"warn"};
+  return{t:f,c:"ok"};
+}
+function render(){
+  const q=$("q").value.trim().toLowerCase();
+  const all=Object.values(P);
+  const list=all.filter(p=>{
+    const t=total(p);
+    if(filter==="stock"&&!t)return false;
+    if(filter==="out"&&t)return false;
+    return !q||(p.name+" "+p.brand+" "+p.code).toLowerCase().includes(q);
+  });
+  $("shelves").innerHTML=SHELVES.map(s=>{
+    const its=list.filter(p=>p.shelf===s).sort((a,b)=>a.name.localeCompare(b.name));
+    if(!its.length&&(q||filter!=="all"&&all.length))return "";
+    return `<section class="shelf"><h2>${esc(s)}</h2><div class="board">${
+      its.map(p=>{const t=total(p),first=p.batches[0],m=mhdInfo(first&&first.mhd),more=p.batches.length>1?` +${p.batches.length-1}`:"";
+        return `<button class="item ${t?"":"out"}" data-id="${esc(p.id)}">${(p.photo||p.photoUrl)?`<img class="ph" src="${p.photo||p.photoUrl}" alt="" onerror="this.outerHTML='<div class=ph>📦</div>'">`:'<div class="ph">📦</div>'}<div class="t"><b>${esc(p.name)}</b>${p.brand?`<small>${esc(p.brand)}</small>`:""}<div class="row"><span class="qty">${t?"× "+t:"leer"}</span>${t?`<span class="badge ${m.c}">${m.t}${more}</span>`:""}</div></div></button>`}).join("")||'<div class="empty">leer</div>'
+    }</div></section>`}).join("")||'<p class="empty" style="margin:30px 14px">Noch nichts im Regal. Tippe auf „Scannen“, um dein erstes Produkt hinzuzufügen.</p>';
+}
+$("shelves").onclick=e=>{const b=e.target.closest(".item");if(b)openItem(P[b.dataset.id])};
+$("q").oninput=render;
+$("seg").onclick=e=>{const b=e.target.closest("button");if(!b)return;filter=b.dataset.f;[...$("seg").children].forEach(x=>x.classList.toggle("on",x===b));render()};
+$("modeSeg").onclick=e=>{const b=e.target.closest("button");if(!b)return;mode=b.dataset.m;[...$("modeSeg").children].forEach(x=>x.classList.toggle("on",x===b))};
+
+/* Scanner */
+async function startScan(){
+  $("dScan").showModal();$("st").textContent="Kamera wird gestartet …";$("manual").value="";
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
+    const v=$("vid");v.srcObject=stream;await v.play();scanning=true;
+    $("st").textContent="Halte den Barcode ins Bild …";
+    if("BarcodeDetector" in window){
+      const det=new BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e","code_128"]});
+      const loop=async()=>{if(!scanning)return;try{const r=await det.detect(v);if(r.length)return found(r[0].rawValue)}catch(e){}setTimeout(loop,200)};loop();
+    }else if(window.ZXing){
+      reader=new ZXing.BrowserMultiFormatReader();
+      const loop=async()=>{if(!scanning)return;try{const r=await reader.decodeFromVideoElement(v);if(r)return found(r.getText())}catch(e){}if(scanning)setTimeout(loop,200)};loop();
+    }else $("st").textContent="Scanner nicht verfügbar – bitte Barcode eintippen.";
+  }catch(e){$("st").textContent="Kein Kamerazugriff – bitte Barcode eintippen."}
+}
+function stopScan(){scanning=false;try{reader&&reader.reset()}catch(e){}reader=null;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
+$("scan").onclick=startScan;
+$("scanClose").onclick=()=>{stopScan();$("dScan").close()};
+$("dScan").addEventListener("cancel",stopScan);
+$("mgo").onclick=()=>{const c=$("manual").value.replace(/\D/g,"");if(c.length>=6)found(c)};
+
+function guessShelf(tags){
+  const t=(tags||[]).join(" ");
+  if(/beverage|drink|water|juice|beer|wine/.test(t))return SHELVES[2];
+  if(/pasta|rice|cereal|grain|noodle/.test(t))return SHELVES[1];
+  if(/canned|jar|vegetable|legume|tomato/.test(t))return SHELVES[0];
+  if(/spice|oil|condiment|sauce|herb/.test(t))return SHELVES[3];
+  if(/snack|sweet|chocolate|candy|biscuit/.test(t))return SHELVES[4];
+  if(/breakfast|flour|baking|sugar|spread/.test(t))return SHELVES[5];
+  return SHELVES[6];
+}
+async function found(code){
+  stopScan();$("dScan").close();
+  const p=P[code];
+  if(mode==="out"){
+    if(!p||!total(p)){toast(p?`„${p.name}“ ist nicht mehr vorrätig`:"Produkt unbekannt – nichts entnommen");return}
+    p.batches[0].qty--;norm(p);await savep(p);
+    toast(`− 1 ${p.name} · noch ${total(p)}`);return;
+  }
+  if(p){openItem(p,true);return}
+  let n={id:code,code,name:"",brand:"",shelf:SHELVES[6],photo:"",photoUrl:"",batches:[]},hint="Produkt nicht gefunden – bitte Namen eintragen. Beim nächsten Scan wird es automatisch erkannt.";
+  try{
+    const ctl=new AbortController();setTimeout(()=>ctl.abort(),6000);
+    const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,categories_tags,image_front_small_url`,{signal:ctl.signal});
+    const j=await r.json();
+    if(j.status===1&&j.product&&j.product.product_name){n.name=j.product.product_name;n.brand=(j.product.brands||"").split(",")[0];n.shelf=guessShelf(j.product.categories_tags);n.photoUrl=j.product.image_front_small_url||"";hint="✓ Produkt erkannt (Open Food Facts) – bitte MHD ergänzen."+(n.photoUrl?" Foto übernommen – zum Ersetzen aufs Bild tippen.":" Kein Foto vorhanden – tippe aufs 📷 und mach selbst eins.")}
+  }catch(e){}
+  openItem(n,true,hint);
+}
+
+/* Produkt-Dialog */
+function openItem(p,addBatch,hint){
+  cur=JSON.parse(JSON.stringify(p));cur.batches=cur.batches||[];
+  if(addBatch)cur.batches.push({mhd:"",qty:1});
+  $("iHint").textContent=hint||(addBatch?"✓ Schon im Regal – neue Charge unten ergänzen.":"Barcode: "+(cur.code||"–"));
+  $("fName").value=cur.name;$("fBrand").value=cur.brand||"";$("fShelf").value=cur.shelf;
+  $("iDel").style.display=P[cur.id]?"":"none";
+  drawPhoto();drawBatches();$("dItem").showModal();
+}
+function drawPhoto(){$("photo").innerHTML=(cur.photo||cur.photoUrl)?`<img src="${cur.photo||cur.photoUrl}" style="width:100%;height:100%;border-radius:8px;object-fit:cover" alt="" onerror="this.outerHTML='📷'">`:"📷"}
+function drawBatches(){
+  $("bList").innerHTML=cur.batches.map((b,i)=>`<div class="batch"><input type="date" data-i="${i}" data-k="mhd" value="${b.mhd}"><div class="stepper"><button data-i="${i}" data-d="-1">−</button><input type="number" min="0" inputmode="numeric" data-i="${i}" data-k="qty" value="${b.qty}"><button data-i="${i}" data-d="1">+</button></div></div>`).join("")||'<div class="empty">Kein Bestand</div>';
+}
+$("bList").onclick=e=>{const b=e.target.closest("button");if(!b)return;const x=cur.batches[+b.dataset.i];x.qty=Math.max(0,x.qty+ +b.dataset.d);drawBatches()};
+$("bList").onchange=e=>{const t=e.target,x=cur.batches[+t.dataset.i];if(t.dataset.k==="mhd")x.mhd=t.value;else{x.qty=Math.max(0,+t.value||0);drawBatches()}};
+$("addB").onclick=()=>{cur.batches.push({mhd:"",qty:1});drawBatches()};
+$("photo").onclick=()=>$("file").click();
+$("file").onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const img=new Image();img.onload=()=>{
+    const s=Math.min(1,240/Math.max(img.width,img.height)),c=document.createElement("canvas");
+    c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+    cur.photo=c.toDataURL("image/jpeg",.7);drawPhoto();URL.revokeObjectURL(img.src)};
+  img.src=URL.createObjectURL(f);e.target.value="";
+};
+$("iClose").onclick=()=>$("dItem").close();
+$("iSave").onclick=async()=>{
+  const name=$("fName").value.trim();if(!name){$("fName").focus();return}
+  Object.assign(cur,{name,brand:$("fBrand").value.trim(),shelf:$("fShelf").value});
+  if(!cur.id){cur.id="m"+Date.now();cur.code=""}
+  norm(cur);$("dItem").close();await savep(cur);
+};
+$("iDel").onclick=()=>{if(confirm("Produkt komplett löschen?")){$("dItem").close();delp(cur.id)}};
+
+/* Start: lokal anzeigen, dann Datenbank anbinden */
+try{const r=localStorage.getItem(LK);if(r)P=JSON.parse(r)}catch(e){}
+render();setSync("📱 lokal");
+(async()=>{
+  try{dbc=window.claude?await claude.use("db"):null}catch(e){dbc=null}
+  if(!dbc){return}
+  dbc.collection("products").onSnapshot(async snap=>{
+    P={};snap.docs.forEach(d=>{P[d.id]={...d.data(),id:d.id}});
+    setSync("☁️ synchronisiert");
+    if(snap.empty&&!migrated){migrated=true;
+      try{ // einmalig Daten der alten Version übernehmen
+        const old=JSON.parse(localStorage.getItem("vorratsregal:v1")||"null");
+        if(old&&old.items){const g={};old.items.forEach(i=>{const id=i.code||("m"+i.id);g[id]=g[id]||{id,code:i.code||"",name:i.name,brand:i.brand||"",shelf:i.shelf,photo:"",batches:[]};if(!i.out)g[id].batches.push({mhd:i.mhd||"",qty:i.qty})});
+          for(const k in g)await savep(norm(g[k]));toast("Alte Daten übernommen");return}
+      }catch(e){}
+    }
+    render();
+  },()=>setSync("📱 lokal"));
+})();
+</script>
+</body>
+</html>
