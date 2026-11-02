@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mein Vorratsregal</title>
 <style>
+  body:not(.authenticated) > header,
+body:not(.authenticated) > main,
+body:not(.authenticated) > .fab {
+  display: none;
+}
 :root{--bg:#f6f1e9;--card:#fffdf8;--ink:#2b2418;--mut:#7a6e5c;--wood:#b98a56;--acc:#2f6b4f;--ok:#2f6b4f;--warn:#b9791a;--bad:#b3392f;--line:#e3d9c8;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1914;--card:#27231c;--ink:#f1eadb;--mut:#a89c88;--wood:#8a6538;--acc:#6fbf97;--ok:#6fbf97;--warn:#e0a247;--bad:#e46b5f;--line:#3a3429}}
@@ -99,10 +104,22 @@ video{width:100%;border-radius:12px;background:#000;aspect-ratio:4/3;object-fit:
 </dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SHELVES=["Konserven & Gläser","Nudeln, Reis & Getreide","Getränke","Gewürze & Öle","Süßes & Snacks","Frühstück & Backen","Sonstiges"];
 const LK="vorratsregal:v2";
-let P={},dbc=null,filter="stock",mode="in",cur=null,stream=null,reader=null,scanning=false,migrated=false;
+
+const SUPABASE_URL = "https://iqskwbrfuulvwtjvufig.supabase.co";
+const SUPABASE_KEY = "sb_publishable_4nSIm16AxpZYLDZzdSUyPg_z7lTqcRw";
+
+const sb = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
+
+let P={},familyId=null,filter="stock",mode="in",
+cur=null,stream=null,reader=null,scanning=false,
+legacyP={};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 $("fShelf").innerHTML=SHELVES.map(s=>`<option>${esc(s)}</option>`).join("");
@@ -113,12 +130,51 @@ function norm(p){const m={};(p.batches||[]).forEach(b=>{if(b.qty>0)m[b.mhd||""]=
 function persistLocal(){try{localStorage.setItem(LK,JSON.stringify(P))}catch(e){}}
 function setSync(t){$("sync").textContent=t}
 
-async function savep(p){
-  p.updated=Date.now();P[p.id]=p;render();
-  if(dbc){try{await dbc.collection("products").doc(p.id).set(JSON.parse(JSON.stringify(p)))}catch(e){toast("Speichern fehlgeschlagen")}}
-  else persistLocal();
+
+function persistLocal(){
+  const key = familyId ? LK + ":" + familyId : LK;
+  try {
+    localStorage.setItem(key, JSON.stringify(P));
+  } catch(e) {}
 }
-async function delp(id){delete P[id];render();if(dbc){try{await dbc.collection("products").doc(id).delete()}catch(e){}}else persistLocal()}
+
+async function savep(p){
+  p.updated = Date.now();
+  P[p.id] = p;
+  render();
+  persistLocal();
+
+  if(!familyId) return;
+
+  const {error} = await sb.from("products").upsert({
+    family_id: familyId,
+    product_id: p.id,
+    data: p,
+    updated_at: new Date().toISOString()
+  }, {
+    onConflict: "family_id,product_id"
+  });
+
+  if(error){
+    toast("Speichern fehlgeschlagen: " + error.message);
+    setSync("⚠️ Speicherfehler");
+  }
+}
+
+async function delp(id){
+  delete P[id];
+  render();
+  persistLocal();
+
+  if(!familyId) return;
+
+  const {error} = await sb.from("products")
+    .delete()
+    .eq("family_id", familyId)
+    .eq("product_id", id);
+
+  if(error) toast("Löschen fehlgeschlagen");
+}
 
 function mhdInfo(d){
   if(!d)return{t:"kein MHD",c:""};
@@ -235,25 +291,283 @@ $("iSave").onclick=async()=>{
 };
 $("iDel").onclick=()=>{if(confirm("Produkt komplett löschen?")){$("dItem").close();delp(cur.id)}};
 
-/* Start: lokal anzeigen, dann Datenbank anbinden */
-try{const r=localStorage.getItem(LK);if(r)P=JSON.parse(r)}catch(e){}
-render();setSync("📱 lokal");
-(async()=>{
-  try{dbc=window.claude?await claude.use("db"):null}catch(e){dbc=null}
-  if(!dbc){return}
-  dbc.collection("products").onSnapshot(async snap=>{
-    P={};snap.docs.forEach(d=>{P[d.id]={...d.data(),id:d.id}});
-    setSync("☁️ synchronisiert");
-    if(snap.empty&&!migrated){migrated=true;
-      try{ // einmalig Daten der alten Version übernehmen
-        const old=JSON.parse(localStorage.getItem("vorratsregal:v1")||"null");
-        if(old&&old.items){const g={};old.items.forEach(i=>{const id=i.code||("m"+i.id);g[id]=g[id]||{id,code:i.code||"",name:i.name,brand:i.brand||"",shelf:i.shelf,photo:"",batches:[]};if(!i.out)g[id].batches.push({mhd:i.mhd||"",qty:i.qty})});
-          for(const k in g)await savep(norm(g[k]));toast("Alte Daten übernommen");return}
-      }catch(e){}
+function authMessage(message){
+  $("authMsg").textContent = message;
+}
+
+$("registerBtn").onclick = async () => {
+  const email = $("authEmail").value.trim();
+  const password = $("authPassword").value;
+
+  if(!email || password.length < 8){
+    authMessage("Bitte E-Mail und mindestens 8 Zeichen Passwort eingeben.");
+    return;
+  }
+
+  const {data,error} = await sb.auth.signUp({
+    email,
+    password
+  });
+
+  if(error){
+    authMessage(error.message);
+    return;
+  }
+
+  if(!data.session){
+    authMessage("Bitte bestätige deine E-Mail. Danach kannst du dich anmelden.");
+  } else {
+    authMessage("Konto erstellt!");
+  }
+};
+
+$("loginBtn").onclick = async () => {
+  const email = $("authEmail").value.trim();
+  const password = $("authPassword").value;
+
+  const {error} = await sb.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if(error) authMessage(error.message);
+};
+
+$("createFamilyBtn").onclick = async () => {
+  const name = $("familyName").value.trim();
+  if(!name){
+    authMessage("Bitte gib einen Familiennamen ein.");
+    return;
+  }
+
+  const {data,error} = await sb.rpc("create_family", {
+    family_name: name
+  });
+
+  if(error){
+    authMessage(error.message);
+    return;
+  }
+
+  await connectFamily(data);
+};
+
+$("logoutBtn").onclick = async () => {
+  await sb.auth.signOut();
+};
+
+async function handleSession(session){
+  if(!session){
+    document.body.classList.remove("authenticated");
+    $("loginBox").hidden = false;
+    $("familyBox").hidden = true;
+    return;
+  }
+
+  currentUser = session.user;
+
+  const {data,error} = await sb
+    .from("family_members")
+    .select("family_id,role")
+    .eq("user_id", currentUser.id)
+    .limit(1)
+    .maybeSingle();
+
+  if(error){
+    authMessage("Familienzugriff konnte nicht geprüft werden.");
+    return;
+  }
+
+  if(!data){
+    $("authTitle").textContent = "Familie einrichten";
+    $("loginBox").hidden = true;
+    $("familyBox").hidden = false;
+    return;
+  }
+
+  await connectFamily(data.family_id);
+}
+
+let currentUser = null;
+let realtimeChannel = null;
+
+async function connectFamily(id){
+  familyId = id;
+
+  const {data,error} = await sb
+    .from("products")
+    .select("product_id,data")
+    .eq("family_id", familyId);
+
+  if(error){
+    authMessage("Produkte konnten nicht geladen werden.");
+    return;
+  }
+
+  const cloud = {};
+  (data || []).forEach(row => {
+    cloud[row.product_id] = {
+      ...row.data,
+      id: row.product_id
+    };
+  });
+
+  if(Object.keys(cloud).length === 0){
+    const localKey = LK + ":" + familyId;
+    let local = {};
+
+    try {
+      local = JSON.parse(localStorage.getItem(localKey) || "null") || {};
+    } catch(e) {}
+
+    if(!Object.keys(local).length){
+      local = legacyP;
     }
+
+    if(Object.keys(local).length &&
+       confirm("Lokale Vorräte in die neue Familien-Datenbank übernehmen?")){
+      P = local;
+
+      const rows = Object.values(P).map(p => ({
+        family_id: familyId,
+        product_id: p.id,
+        data: p,
+        updated_at: new Date().toISOString()
+      }));
+
+      const {error:uploadError} = await sb
+        .from("products")
+        .upsert(rows, {
+          onConflict: "family_id,product_id"
+        });
+
+      if(uploadError){
+        toast("Datenübernahme fehlgeschlagen");
+        return;
+      }
+    } else {
+      P = {};
+    }
+  } else {
+    P = cloud;
+  }
+
+  document.body.classList.add("authenticated");
+  $("authTitle").textContent = "Angemeldet";
+  $("auth").hidden = true;
+
+  persistLocal();
+  render();
+  setSync("☁️ synchronisiert");
+
+  if(realtimeChannel){
+    await sb.removeChannel(realtimeChannel);
+  }
+
+  realtimeChannel = sb
+    .channel("family-products-" + familyId)
+    .on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: "products",
+      filter: "family_id=eq." + familyId
+    }, async () => {
+      const {data,error} = await sb
+        .from("products")
+        .select("product_id,data")
+        .eq("family_id", familyId);
+
+      if(error) return;
+
+      P = {};
+      (data || []).forEach(row => {
+        P[row.product_id] = {
+          ...row.data,
+          id: row.product_id
+        };
+      });
+
+      persistLocal();
+      render();
+      setSync("☁️ live");
+    })
+    .subscribe();
+}
+
+sb.auth.onAuthStateChange((event,session) => {
+  if(event === "SIGNED_IN"){
+    setTimeout(() => handleSession(session), 0);
+  }
+
+  if(event === "SIGNED_OUT"){
+    familyId = null;
+    P = {};
+    document.body.classList.remove("authenticated");
+    $("auth").hidden = false;
+    $("loginBox").hidden = false;
+    $("familyBox").hidden = true;
     render();
-  },()=>setSync("📱 lokal"));
+    setSync("");
+  }
+});
+
+(async () => {
+  try {
+    const old = localStorage.getItem(LK);
+    if(old) legacyP = JSON.parse(old) || {};
+  } catch(e) {}
+
+  render();
+  setSync("📱 lokal");
+
+  const {data,error} = await sb.auth.getSession();
+
+  if(error){
+    authMessage("Anmeldung konnte nicht geladen werden.");
+    return;
+  }
+
+  if(data.session){
+    await handleSession(data.session);
+  }
 })();
+
 </script>
 </body>
+
+
+<section id="auth" style="padding:30px 18px;max-width:440px;margin:auto">
+  <h1>🥫 Mein Vorratsregal</h1>
+  <h2 id="authTitle">Willkommen!</h2>
+  <p id="authMsg">Melde dich an oder erstelle ein Konto.</p>
+
+  <div id="loginBox">
+    <label>E-Mail-Adresse</label>
+    <input id="authEmail" type="email" autocomplete="email"
+      placeholder="name@beispiel.de">
+
+    <label>Passwort</label>
+    <input id="authPassword" type="password"
+      autocomplete="current-password" placeholder="Passwort">
+
+    <div class="btns">
+      <button id="loginBtn" class="pri">Anmelden</button>
+      <button id="registerBtn">Registrieren</button>
+    </div>
+  </div>
+
+  <div id="familyBox" hidden>
+    <h3>Deine Familie</h3>
+    <p>Erstelle einen gemeinsamen Haushalt für eure Vorräte.</p>
+    <label>Familienname</label>
+    <input id="familyName" placeholder="z. B. Familie Müller">
+    <div class="btns">
+      <button id="createFamilyBtn" class="pri">
+        Familie erstellen
+      </button>
+      <button id="logoutBtn">Abmelden</button>
+    </div>
+  </div>
+</section>
+
 </html>
