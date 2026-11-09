@@ -56,6 +56,8 @@ body:not(.authenticated) > header,
 body:not(.authenticated) > main,
 body:not(.authenticated) > .fab { display:none; }
 [hidden] { display:none !important; }
+#auth { position:relative; z-index:20; pointer-events:auto; }
+#auth button { position:relative; z-index:21; pointer-events:auto; touch-action:manipulation; }
 
 </style>
 </head>
@@ -86,11 +88,17 @@ body:not(.authenticated) > .fab { display:none; }
       <button id="createFamilyBtn" class="pri">Haushalt erstellen</button>
       <button id="logoutBtn">Abmelden</button>
     </div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+    <h3>Du hast schon einen Einladungscode?</h3>
+    <label for="joinCodeFirst">Einladungscode</label>
+    <input id="joinCodeFirst" autocapitalize="characters" placeholder="z. B. A1B2C3D4">
+    <div class="btns"><button id="joinFamilyFirstBtn">Einer Familie beitreten</button></div>
   </div>
 </section>
 
 <header>
   <h1><span>🥫 Mein Vorratsregal</span><span id="sync"></span></h1>
+  <button id="familyManage" type="button" style="width:100%;margin:4px 0 8px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer">👨‍👩‍👧 Familie verwalten / Mitglied einladen</button>
   <input id="q" type="search" placeholder="Suchen: Name, Marke, Barcode …">
   <div class="seg" id="seg">
     <button data-f="stock" class="on">Vorrätig</button>
@@ -101,6 +109,29 @@ body:not(.authenticated) > .fab { display:none; }
 <main id="shelves"></main>
 <button class="fab" id="scan">📷 Scannen</button>
 <div id="toast"></div>
+
+<dialog id="dFamily">
+  <h2 style="margin:0 0 8px">👨‍👩‍👧 Familie & Einladungen</h2>
+  <p style="color:var(--mut);font-size:14px">Erstelle einen Einladungscode und gib ihn deiner Mutter oder deinem Vater. Jede Person meldet sich mit einer eigenen E-Mail-Adresse und einem eigenen Passwort an.</p>
+  <div class="btns"><button id="makeInviteBtn" class="pri">Einladungscode erstellen</button></div>
+  <div id="inviteOutput" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)">
+    <label>Dein Einladungscode (7 Tage gültig)</label>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="inviteCodeDisplay" readonly style="font-weight:700;letter-spacing:2px">
+      <button id="copyInviteBtn" type="button" style="padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card)">Kopieren</button>
+    </div>
+    <small style="color:var(--mut)">Der Code kann von bis zu 10 Personen verwendet werden.</small>
+  </div>
+  <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+  <h3>Mit Einladungscode beitreten</h3>
+  <label for="joinCode">Einladungscode</label>
+  <input id="joinCode" autocapitalize="characters" placeholder="Code eingeben">
+  <div class="btns">
+    <button id="joinFamilyBtn" class="pri">Familie beitreten</button>
+    <button id="familyCloseBtn">Schließen</button>
+  </div>
+  <p id="familyMsg" style="font-size:13px;color:var(--mut)"></p>
+</dialog>
 
 <dialog id="dScan">
   <div class="seg" id="modeSeg" style="margin:0 0 10px">
@@ -134,7 +165,13 @@ body:not(.authenticated) > .fab { display:none; }
 </dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  // Zweiter CDN-Anbieter als Fallback, falls jsDelivr nicht erreichbar ist.
+  if (!window.supabase || typeof window.supabase.createClient !== "function") {
+    document.write('<script src="https://unpkg.com/@supabase/supabase-js@2"><\\/script>');
+  }
+</script>
 <script>
 const SHELVES=["Konserven & Gläser","Nudeln, Reis & Getreide","Getränke","Gewürze & Öle","Süßes & Snacks","Frühstück & Backen","Sonstiges"];
 const LK="vorratsregal:v2";
@@ -299,6 +336,12 @@ $("iDel").onclick=()=>{if(confirm("Produkt komplett löschen?")){$("dItem").clos
 /* Anmeldung, Haushalt und Supabase-Synchronisierung */
 const SUPABASE_URL="https://iqskwbrfuulvwtjvufig.supabase.co";
 const SUPABASE_KEY="sb_publishable_4nSIm16AxpZYLDZzdSUyPg_z7lTqcRw";
+
+if(!window.supabase || typeof window.supabase.createClient!=="function"){
+  $("authMsg").textContent="Die Anmeldung konnte nicht geladen werden. Bitte lade die Seite neu oder prüfe deine Internetverbindung. Falls das Problem bleibt, blockiert möglicherweise ein Browser- oder Datenschutzfilter die Supabase-Bibliothek.";
+  $("loginBtn").disabled=true;
+  $("registerBtn").disabled=true;
+}else{
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 let currentUser=null;
@@ -353,6 +396,85 @@ $("logoutBtn").onclick=async()=>{
   const {error}=await sb.auth.signOut();
   if(error)authMessage("Abmelden fehlgeschlagen: "+error.message);
 };
+
+function familyMessage(message){
+  $("familyMsg").textContent=message;
+}
+
+$("familyManage").onclick=()=>{
+  $("inviteOutput").style.display="none";
+  $("familyMsg").textContent="";
+  $("dFamily").showModal();
+};
+$("familyCloseBtn").onclick=()=>$("dFamily").close();
+
+async function createInvite(){
+  if(!familyId){
+    familyMessage("Du bist noch keinem Haushalt zugeordnet.");
+    return;
+  }
+  $("makeInviteBtn").disabled=true;
+  familyMessage("Einladungscode wird erstellt …");
+  const {data,error}=await sb.rpc("create_family_invite",{p_family_id:familyId});
+  $("makeInviteBtn").disabled=false;
+  if(error){
+    familyMessage("Einladung konnte nicht erstellt werden: "+error.message+" — Bitte führe zuerst das SQL-Setup aus.");
+    return;
+  }
+  const code=typeof data==="string" ? data : (data && (data.code || data.invite_code));
+  if(!code){
+    familyMessage("Der Server hat keinen Einladungscode zurückgegeben.");
+    return;
+  }
+  $("inviteCodeDisplay").value=code;
+  $("inviteOutput").style.display="block";
+  familyMessage("Fertig! Schicke diesen Code an deine Familienmitglieder.");
+}
+$("makeInviteBtn").onclick=createInvite;
+
+$("copyInviteBtn").onclick=async()=>{
+  const code=$("inviteCodeDisplay").value;
+  try{
+    await navigator.clipboard.writeText(code);
+    familyMessage("Einladungscode kopiert.");
+  }catch(e){
+    $("inviteCodeDisplay").select();
+    familyMessage("Code markiert. Du kannst ihn jetzt kopieren.");
+  }
+};
+
+async function joinFamily(codeValue, messageElement){
+  const code=(codeValue||"").trim().toUpperCase().replace(/\\s+/g,"");
+  if(!code){
+    if(messageElement==="family")familyMessage("Bitte gib einen Einladungscode ein.");
+    else authMessage("Bitte gib einen Einladungscode ein.");
+    return;
+  }
+  const button=messageElement==="family"?$("joinFamilyBtn"):$("joinFamilyFirstBtn");
+  button.disabled=true;
+  if(messageElement==="family")familyMessage("Beitritt wird geprüft …");
+  else authMessage("Einladungscode wird geprüft …");
+  const {data,error}=await sb.rpc("join_family_with_code",{p_code:code});
+  button.disabled=false;
+  if(error){
+    const msg="Beitritt fehlgeschlagen: "+error.message;
+    if(messageElement==="family")familyMessage(msg);
+    else authMessage(msg);
+    return;
+  }
+  const joinedFamilyId=typeof data==="string"?data:(data && (data.family_id||data.id));
+  if(!joinedFamilyId){
+    const msg="Der Server hat keine Haushalts-ID zurückgegeben.";
+    if(messageElement==="family")familyMessage(msg);
+    else authMessage(msg);
+    return;
+  }
+  if(messageElement==="family")$("dFamily").close();
+  $("auth").hidden=true;
+  await connectFamily(joinedFamilyId);
+}
+$("joinFamilyBtn").onclick=()=>joinFamily($("joinCode").value,"family");
+$("joinFamilyFirstBtn").onclick=()=>joinFamily($("joinCodeFirst").value,"auth");
 
 async function handleSession(session){
   if(!session){
@@ -510,6 +632,7 @@ sb.auth.onAuthStateChange((event,session)=>{
   }
   if(data.session)await handleSession(data.session);
 })();
+} // Ende: Supabase-Bibliothek erfolgreich geladen
 </script>
 </body>
 </html>
