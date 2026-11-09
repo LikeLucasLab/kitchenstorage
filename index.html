@@ -98,7 +98,10 @@ body:not(.authenticated) > .fab { display:none; }
 
 <header>
   <h1><span>🥫 Mein Vorratsregal</span><span id="sync"></span></h1>
-  <button id="familyManage" type="button" style="width:100%;margin:4px 0 8px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer">👨‍👩‍👧 Familie verwalten / Mitglied einladen</button>
+  <div class="btns" style="display:flex;gap:8px;margin:4px 0 8px">
+    <button id="familyManage" type="button" style="flex:1;margin:0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer">👨‍👩‍👧 Familie verwalten / Mitglied einladen</button>
+    <button id="headerLogoutBtn" type="button" style="margin:0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer">↪ Abmelden</button>
+  </div>
   <input id="q" type="search" placeholder="Suchen: Name, Marke, Barcode …">
   <div class="seg" id="seg">
     <button data-f="stock" class="on">Vorrätig</button>
@@ -395,6 +398,13 @@ $("createFamilyBtn").onclick=async()=>{
 $("logoutBtn").onclick=async()=>{
   const {error}=await sb.auth.signOut();
   if(error)authMessage("Abmelden fehlgeschlagen: "+error.message);
+};
+$("headerLogoutBtn").onclick=async()=>{
+  const button=$("headerLogoutBtn");
+  button.disabled=true;
+  const {error}=await sb.auth.signOut();
+  button.disabled=false;
+  if(error)toast("Abmelden fehlgeschlagen: "+error.message);
 };
 
 function familyMessage(message){
