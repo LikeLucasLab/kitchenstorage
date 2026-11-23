@@ -1,4 +1,255 @@
 
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vorratswelt – Küche & Einkauf</title>
+<style>
+:root{--bg:#f6f1e9;--card:#fffdf8;--ink:#2b2418;--mut:#7a6e5c;--wood:#b98a56;--acc:#2f6b4f;--ok:#2f6b4f;--warn:#b9791a;--bad:#b3392f;--line:#e3d9c8;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1914;--card:#27231c;--ink:#f1eadb;--mut:#a89c88;--wood:#8a6538;--acc:#6fbf97;--ok:#6fbf97;--warn:#e0a247;--bad:#e46b5f;--line:#3a3429}}
+:root[data-theme="dark"]{--bg:#1c1914;--card:#27231c;--ink:#f1eadb;--mut:#a89c88;--wood:#8a6538;--acc:#6fbf97;--ok:#6fbf97;--warn:#e0a247;--bad:#e46b5f;--line:#3a3429}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;max-width:760px;margin-inline:auto;padding-bottom:90px}
+header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:12px 14px 8px;z-index:5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
+h1{font-size:20px;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
+#sync{font-size:12px;font-weight:400;color:var(--mut)}
+input,select,button{font:inherit;color:inherit}
+input,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.seg{display:flex;gap:6px;margin-top:8px}
+.seg button{flex:1;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer}
+.seg button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.shelf{margin:14px 14px 0}
+.shelf h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:0 0 6px}
+.board{display:flex;flex-wrap:wrap;gap:8px;padding:10px 8px 12px;border-bottom:10px solid var(--wood);border-radius:6px 6px 0 0;background:linear-gradient(var(--card),var(--bg));min-height:70px}
+.item{flex:1 1 220px;display:flex;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;text-align:left;cursor:pointer}
+.item.out{opacity:.45}
+.ph{width:56px;height:56px;border-radius:8px;object-fit:contain;object-position:center;background:#fff;box-sizing:border-box;padding:3px;flex:none;display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden}
+.item .t{flex:1;min-width:0}
+.item b{display:block;font-size:14px;overflow-wrap:anywhere}
+.item small{color:var(--mut)}
+.row{display:flex;justify-content:space-between;align-items:center;margin-top:4px;gap:6px}
+.qty{font-weight:700}
+.badge{font-size:12px;padding:2px 7px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+.empty{color:var(--mut);font-size:14px;padding:4px}
+.fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--acc);color:#fff;border:0;border-radius:99px;padding:16px 22px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.3);cursor:pointer;z-index:6}
+dialog{border:0;border-radius:16px;padding:16px;width:min(92vw,440px);max-height:90vh;background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 3px}
+.btns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.btns button{flex:1;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);cursor:pointer}
+.btns .pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+.btns .del{color:var(--bad)}
+video{width:100%;border-radius:12px;background:#000;aspect-ratio:4/3;object-fit:cover}
+#st{font-size:14px;color:var(--mut);margin:8px 0}
+.stepper{display:flex;gap:8px;align-items:center}
+.stepper button{width:44px;height:44px;flex:none;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:20px;cursor:pointer}
+.stepper input{text-align:center}
+.batch{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:8px}
+.batch .stepper input{width:56px;padding:10px 4px}
+#photo{width:84px;height:84px;font-size:36px;cursor:pointer;border:1px dashed var(--line)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:50;display:none;max-width:90vw;text-align:center}
+
+body:not(.authenticated) > header,
+body:not(.authenticated) > main,
+body:not(.authenticated) > .fab { display:none; }
+[hidden] { display:none !important; }
+#auth { position:relative; z-index:20; pointer-events:auto; }
+#auth button { position:relative; z-index:21; pointer-events:auto; touch-action:manipulation; }
+
+
+/* Modernes Kitchen-Management-Layout – bestehende Komponenten bleiben erhalten */
+:root{
+ --bg:#f5f7f4;--card:#ffffff;--ink:#18251f;--mut:#718078;--wood:#dce7df;
+ --acc:#287a58;--ok:#287a58;--warn:#b87920;--bad:#bd5148;--line:#e2e9e4;
+ --shadow:0 12px 34px rgba(27,55,40,.07);
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111a16;--card:#1b2821;--ink:#edf5ef;--mut:#a2b2a8;--wood:#34483c;--acc:#70c69a;--ok:#70c69a;--warn:#e5b15c;--bad:#ee8178;--line:#34463b;--shadow:0 12px 34px rgba(0,0,0,.18)}}
+:root[data-theme="dark"]{--bg:#111a16;--card:#1b2821;--ink:#edf5ef;--mut:#a2b2a8;--wood:#34483c;--acc:#70c69a;--ok:#70c69a;--warn:#e5b15c;--bad:#ee8178;--line:#34463b;--shadow:0 12px 34px rgba(0,0,0,.18)}
+body{max-width:none;margin:0;padding:0 0 100px;background:var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+header{position:relative;top:auto;padding:22px clamp(16px,4vw,48px) 18px;background:var(--bg);max-width:1440px;margin:auto}
+body::before{display:none}
+h1{font-size:clamp(23px,3vw,30px);font-weight:800;letter-spacing:-.04em;margin:0 0 16px}
+#sync{font-size:12px;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:6px 10px}
+header>.btns{max-width:100%;margin:0 0 16px!important}
+header>.btns button{border-radius:12px!important;background:var(--card)!important;border:1px solid var(--line)!important;font-size:13px}
+#q{max-width:560px;border-radius:14px;padding:13px 15px;background:var(--card);box-shadow:0 2px 8px rgba(20,40,30,.025)}
+.seg{max-width:520px;margin-top:12px;gap:8px}
+.seg button{border-radius:12px;border-color:var(--line);padding:10px 14px;font-size:13px;font-weight:650}
+.seg button.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+#mainNav{max-width:1440px;margin:0 auto;padding:0 clamp(16px,4vw,48px);display:flex;gap:8px;overflow:auto}
+#mainNav button{border:1px solid var(--line);background:var(--card);color:var(--mut);border-radius:13px;padding:11px 16px;font-size:14px;font-weight:700;white-space:nowrap;cursor:pointer}
+#mainNav button.active{background:var(--acc);border-color:var(--acc);color:white}
+#appContent{max-width:1440px;margin:22px auto 0;padding:0 clamp(16px,4vw,48px)}
+#shelves{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:18px}
+.shelf{margin:0;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:var(--shadow)}
+.shelf h2{font-size:12px;letter-spacing:.09em;margin:0 0 12px;color:var(--mut)}
+.board{border:0;border-radius:14px;background:var(--bg);padding:10px;gap:9px;min-height:70px}
+.item{flex:1 1 100%;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px;background:var(--card);transition:transform .15s,box-shadow .15s}
+.item:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+.ph{width:62px;height:62px;border-radius:12px}
+.item b{font-size:14px}
+.badge{border:0;background:rgba(40,122,88,.10);padding:4px 9px;font-weight:650}
+.badge.warn{background:rgba(184,121,32,.12)}.badge.bad{background:rgba(189,81,72,.12)}
+.fab{right:clamp(18px,4vw,48px);bottom:24px;border-radius:16px;padding:15px 20px;box-shadow:0 12px 28px rgba(25,90,60,.25)}
+dialog{border-radius:22px;padding:22px;box-shadow:0 24px 80px rgba(0,0,0,.22);border:1px solid var(--line)}
+input,select{border-radius:12px;padding:12px 13px}
+.btns button{border-radius:12px;padding:12px;font-weight:650}
+.btns .pri{background:var(--acc);border-color:var(--acc)}
+#auth{max-width:460px!important;margin:7vh auto!important;padding:34px!important;background:var(--card);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow)}
+#auth h1{display:block;font-size:27px}
+#auth h2{font-size:22px;letter-spacing:-.03em}
+#shoppingView{display:none}
+body:not(.authenticated) > #mainNav,body:not(.authenticated) > #appContent{display:none}
+body.shopping-mode #shelves{display:none}
+body.shopping-mode #shoppingView{display:block}
+body.shopping-mode header #q,body.shopping-mode header #seg{display:none}
+.shopping-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+.shopping-head h2{margin:0;font-size:23px;letter-spacing:-.04em}
+.shopping-form{display:flex;gap:9px;margin-bottom:16px}
+.shopping-form input{flex:1;min-width:0}
+.shopping-form button,.shopping-action{border:0;background:var(--acc);color:white;border-radius:12px;padding:0 17px;font-weight:700;cursor:pointer}
+.shopping-list{display:grid;gap:9px}
+.shopping-entry{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:15px;padding:13px 14px;box-shadow:var(--shadow)}
+.shopping-entry input[type=checkbox]{width:19px;height:19px;accent-color:var(--acc);flex:none}
+.shopping-entry .entry-name{flex:1;min-width:0;overflow-wrap:anywhere}
+.shopping-entry.done .entry-name{text-decoration:line-through;color:var(--mut)}
+.shopping-entry button{border:0;background:transparent;color:var(--mut);font-size:18px;cursor:pointer;padding:4px 7px}
+.shopping-empty{padding:36px 18px;text-align:center;color:var(--mut);background:var(--card);border:1px dashed var(--line);border-radius:18px}
+.shopping-count{font-size:12px;color:var(--mut);font-weight:650}
+@media(min-width:900px){#appContent{margin-top:28px}#shelves{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){header{padding-top:17px}header>.btns{flex-wrap:wrap}header>.btns button{font-size:12px!important}#appContent{margin-top:16px}#shelves{grid-template-columns:1fr}.shelf{padding:13px}.shopping-form{flex-wrap:wrap}.shopping-form button{min-height:46px}}
+
+</style>
+</head>
+<body>
+
+<section id="auth" style="padding:30px 18px;max-width:440px;margin:20px auto">
+  <h1 style="font-size:24px;margin-bottom:8px">🥬 Vorratswelt</h1>
+  <h2 id="authTitle" style="font-size:19px">Willkommen!</h2>
+  <p id="authMsg" style="color:var(--mut)">Melde dich an oder erstelle ein Konto.</p>
+
+  <div id="loginBox">
+    <label for="authEmail">E-Mail-Adresse</label>
+    <input id="authEmail" type="email" autocomplete="email" placeholder="name@beispiel.de">
+    <label for="authPassword">Passwort</label>
+    <input id="authPassword" type="password" autocomplete="current-password" placeholder="Mindestens 8 Zeichen">
+    <div class="btns">
+      <button id="loginBtn" class="pri">Anmelden</button>
+      <button id="registerBtn">Registrieren</button>
+    </div>
+  </div>
+
+  <div id="familyBox" hidden>
+    <h3>Deinen Haushalt einrichten</h3>
+    <p>Erstelle einen gemeinsamen Haushalt. Die Vorräte werden anschließend online gespeichert.</p>
+    <label for="familyName">Familien- oder Haushaltsname</label>
+    <input id="familyName" placeholder="z. B. Familie Müller">
+    <div class="btns">
+      <button id="createFamilyBtn" class="pri">Haushalt erstellen</button>
+      <button id="logoutBtn">Abmelden</button>
+    </div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+    <h3>Du hast schon einen Einladungscode?</h3>
+    <label for="joinCodeFirst">Einladungscode</label>
+    <input id="joinCodeFirst" autocapitalize="characters" placeholder="z. B. A1B2C3D4">
+    <div class="btns"><button id="joinFamilyFirstBtn">Einer Familie beitreten</button></div>
+  </div>
+</section>
+
+<header>
+  <h1><span>🥬 Vorratswelt</span><span id="sync"></span></h1>
+  <div class="btns" style="display:flex;gap:8px;margin:4px 0 8px">
+    <button id="familyManage" type="button" style="flex:1;margin:0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer">👨‍👩‍👧 Familie verwalten / Mitglied einladen</button>
+    <button id="headerLogoutBtn" type="button" style="margin:0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer">↪ Abmelden</button>
+  </div>
+  <input id="q" type="search" placeholder="Suchen: Name, Marke, Barcode …">
+  <div class="seg" id="seg">
+    <button data-f="stock" class="on">Vorrätig</button>
+    <button data-f="all">Alle</button>
+    <button data-f="out">Aufgebraucht</button>
+  </div>
+</header>
+<nav id="mainNav" aria-label="Hauptnavigation">
+  <button type="button" class="active" data-view="pantry">🥬 Vorräte</button>
+  <button type="button" data-view="shopping">🛒 Einkaufsliste <span id="shoppingNavCount"></span></button>
+</nav>
+<div id="appContent">
+  <main id="shelves"></main>
+  <section id="shoppingView" aria-label="Einkaufsliste">
+    <div class="shopping-head">
+      <div><h2>Einkaufsliste</h2><div class="shopping-count" id="shoppingCount">Noch keine Artikel</div></div>
+      <button type="button" class="shopping-action" id="clearDone">Erledigte löschen</button>
+    </div>
+    <form class="shopping-form" id="shoppingForm">
+      <input id="shoppingInput" type="text" placeholder="Was möchtest du einkaufen?" autocomplete="off" aria-label="Neuer Einkaufsartikel">
+      <button type="submit">+ Hinzufügen</button>
+    </form>
+    <div class="shopping-list" id="shoppingList"></div>
+  </section>
+</div>
+<button class="fab" id="scan">📷 Scannen</button>
+<div id="toast"></div>
+
+<dialog id="dFamily">
+  <h2 style="margin:0 0 8px">👨‍👩‍👧 Familie & Einladungen</h2>
+  <p style="color:var(--mut);font-size:14px">Erstelle einen Einladungscode und gib ihn deiner Mutter oder deinem Vater. Jede Person meldet sich mit einer eigenen E-Mail-Adresse und einem eigenen Passwort an.</p>
+  <div class="btns"><button id="makeInviteBtn" class="pri">Einladungscode erstellen</button></div>
+  <div id="inviteOutput" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)">
+    <label>Dein Einladungscode (7 Tage gültig)</label>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="inviteCodeDisplay" readonly style="font-weight:700;letter-spacing:2px">
+      <button id="copyInviteBtn" type="button" style="padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card)">Kopieren</button>
+    </div>
+    <small style="color:var(--mut)">Der Code kann von bis zu 10 Personen verwendet werden.</small>
+  </div>
+  <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+  <h3>Mit Einladungscode beitreten</h3>
+  <label for="joinCode">Einladungscode</label>
+  <input id="joinCode" autocapitalize="characters" placeholder="Code eingeben">
+  <div class="btns">
+    <button id="joinFamilyBtn" class="pri">Familie beitreten</button>
+    <button id="familyCloseBtn">Schließen</button>
+  </div>
+  <p id="familyMsg" style="font-size:13px;color:var(--mut)"></p>
+</dialog>
+
+<dialog id="dScan">
+  <div class="seg" id="modeSeg" style="margin:0 0 10px">
+    <button data-m="in" class="on">➕ Einlagern</button>
+    <button data-m="out">➖ Entnehmen</button>
+  </div>
+  <video id="vid" playsinline muted></video>
+  <div id="st">Kamera wird gestartet …</div>
+  <label>Oder Barcode eintippen</label>
+  <div class="stepper"><input id="manual" inputmode="numeric" placeholder="z. B. 4012345678901"><button id="mgo" style="width:auto;padding:0 14px;font-size:16px">OK</button></div>
+  <div class="btns"><button id="scanClose">Abbrechen</button></div>
+</dialog>
+
+<dialog id="dItem">
+  <div id="iHint" style="font-size:13px;color:var(--mut)"></div>
+  <div style="display:flex;gap:12px;align-items:flex-end;margin-top:8px">
+    <div id="photo" class="ph" title="Foto aufnehmen">📷</div>
+    <div style="flex:1"><label style="margin-top:0">Produktname</label><input id="fName"></div>
+  </div>
+  <input id="file" type="file" accept="image/*" capture="environment" hidden>
+  <label>Marke (optional)</label><input id="fBrand">
+  <label>Regal</label><select id="fShelf"></select>
+  <label>Bestand nach Haltbarkeit (MHD)</label>
+  <div id="bList"></div>
+  <button id="addB" style="width:100%;padding:9px;border:1px dashed var(--line);border-radius:10px;background:none;cursor:pointer">+ Weiteres MHD hinzufügen</button>
+  <div class="btns">
+    <button id="iSave" class="pri">Speichern</button>
+    <button id="addToShopping">🛒 Einkaufsliste</button>
+    <button id="iDel" class="del">Löschen</button>
+    <button id="iClose">Schließen</button>
+  </div>
+</dialog>
+
 <script>
 (() => {
   "use strict";
@@ -490,3 +741,6 @@
 
 })();
 </script>
+
+</body>
+</html>
