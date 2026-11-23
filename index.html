@@ -1,782 +1,492 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Vorratswelt – Küche & Einkauf</title>
-<style>
-:root{--bg:#f6f1e9;--card:#fffdf8;--ink:#2b2418;--mut:#7a6e5c;--wood:#b98a56;--acc:#2f6b4f;--ok:#2f6b4f;--warn:#b9791a;--bad:#b3392f;--line:#e3d9c8;
-box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1914;--card:#27231c;--ink:#f1eadb;--mut:#a89c88;--wood:#8a6538;--acc:#6fbf97;--ok:#6fbf97;--warn:#e0a247;--bad:#e46b5f;--line:#3a3429}}
-:root[data-theme="dark"]{--bg:#1c1914;--card:#27231c;--ink:#f1eadb;--mut:#a89c88;--wood:#8a6538;--acc:#6fbf97;--ok:#6fbf97;--warn:#e0a247;--bad:#e46b5f;--line:#3a3429}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;max-width:760px;margin-inline:auto;padding-bottom:90px}
-header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:12px 14px 8px;z-index:5}
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
-h1{font-size:20px;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
-#sync{font-size:12px;font-weight:400;color:var(--mut)}
-input,select,button{font:inherit;color:inherit}
-input,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
-.seg{display:flex;gap:6px;margin-top:8px}
-.seg button{flex:1;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer}
-.seg button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
-.shelf{margin:14px 14px 0}
-.shelf h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:0 0 6px}
-.board{display:flex;flex-wrap:wrap;gap:8px;padding:10px 8px 12px;border-bottom:10px solid var(--wood);border-radius:6px 6px 0 0;background:linear-gradient(var(--card),var(--bg));min-height:70px}
-.item{flex:1 1 220px;display:flex;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;text-align:left;cursor:pointer}
-.item.out{opacity:.45}
-.ph{width:56px;height:56px;border-radius:8px;object-fit:contain;object-position:center;background:#fff;box-sizing:border-box;padding:3px;flex:none;display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden}
-.item .t{flex:1;min-width:0}
-.item b{display:block;font-size:14px;overflow-wrap:anywhere}
-.item small{color:var(--mut)}
-.row{display:flex;justify-content:space-between;align-items:center;margin-top:4px;gap:6px}
-.qty{font-weight:700}
-.badge{font-size:12px;padding:2px 7px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
-.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
-.empty{color:var(--mut);font-size:14px;padding:4px}
-.fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--acc);color:#fff;border:0;border-radius:99px;padding:16px 22px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.3);cursor:pointer;z-index:6}
-dialog{border:0;border-radius:16px;padding:16px;width:min(92vw,440px);max-height:90vh;background:var(--card);color:var(--ink)}
-dialog::backdrop{background:rgba(0,0,0,.55)}
-label{display:block;font-size:13px;color:var(--mut);margin:10px 0 3px}
-.btns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
-.btns button{flex:1;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);cursor:pointer}
-.btns .pri{background:var(--acc);color:#fff;border-color:var(--acc)}
-.btns .del{color:var(--bad)}
-video{width:100%;border-radius:12px;background:#000;aspect-ratio:4/3;object-fit:cover}
-#st{font-size:14px;color:var(--mut);margin:8px 0}
-.stepper{display:flex;gap:8px;align-items:center}
-.stepper button{width:44px;height:44px;flex:none;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:20px;cursor:pointer}
-.stepper input{text-align:center}
-.batch{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:8px}
-.batch .stepper input{width:56px;padding:10px 4px}
-#photo{width:84px;height:84px;font-size:36px;cursor:pointer;border:1px dashed var(--line)}
-#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:50;display:none;max-width:90vw;text-align:center}
 
-body:not(.authenticated) > header,
-body:not(.authenticated) > main,
-body:not(.authenticated) > .fab { display:none; }
-[hidden] { display:none !important; }
-#auth { position:relative; z-index:20; pointer-events:auto; }
-#auth button { position:relative; z-index:21; pointer-events:auto; touch-action:manipulation; }
-
-
-/* Modernes Kitchen-Management-Layout – bestehende Komponenten bleiben erhalten */
-:root{
- --bg:#f5f7f4;--card:#ffffff;--ink:#18251f;--mut:#718078;--wood:#dce7df;
- --acc:#287a58;--ok:#287a58;--warn:#b87920;--bad:#bd5148;--line:#e2e9e4;
- --shadow:0 12px 34px rgba(27,55,40,.07);
-}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111a16;--card:#1b2821;--ink:#edf5ef;--mut:#a2b2a8;--wood:#34483c;--acc:#70c69a;--ok:#70c69a;--warn:#e5b15c;--bad:#ee8178;--line:#34463b;--shadow:0 12px 34px rgba(0,0,0,.18)}}
-:root[data-theme="dark"]{--bg:#111a16;--card:#1b2821;--ink:#edf5ef;--mut:#a2b2a8;--wood:#34483c;--acc:#70c69a;--ok:#70c69a;--warn:#e5b15c;--bad:#ee8178;--line:#34463b;--shadow:0 12px 34px rgba(0,0,0,.18)}
-body{max-width:none;margin:0;padding:0 0 100px;background:var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
-header{position:relative;top:auto;padding:22px clamp(16px,4vw,48px) 18px;background:var(--bg);max-width:1440px;margin:auto}
-body::before{display:none}
-h1{font-size:clamp(23px,3vw,30px);font-weight:800;letter-spacing:-.04em;margin:0 0 16px}
-#sync{font-size:12px;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:6px 10px}
-header>.btns{max-width:100%;margin:0 0 16px!important}
-header>.btns button{border-radius:12px!important;background:var(--card)!important;border:1px solid var(--line)!important;font-size:13px}
-#q{max-width:560px;border-radius:14px;padding:13px 15px;background:var(--card);box-shadow:0 2px 8px rgba(20,40,30,.025)}
-.seg{max-width:520px;margin-top:12px;gap:8px}
-.seg button{border-radius:12px;border-color:var(--line);padding:10px 14px;font-size:13px;font-weight:650}
-.seg button.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
-#mainNav{max-width:1440px;margin:0 auto;padding:0 clamp(16px,4vw,48px);display:flex;gap:8px;overflow:auto}
-#mainNav button{border:1px solid var(--line);background:var(--card);color:var(--mut);border-radius:13px;padding:11px 16px;font-size:14px;font-weight:700;white-space:nowrap;cursor:pointer}
-#mainNav button.active{background:var(--acc);border-color:var(--acc);color:white}
-#appContent{max-width:1440px;margin:22px auto 0;padding:0 clamp(16px,4vw,48px)}
-#shelves{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:18px}
-.shelf{margin:0;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:var(--shadow)}
-.shelf h2{font-size:12px;letter-spacing:.09em;margin:0 0 12px;color:var(--mut)}
-.board{border:0;border-radius:14px;background:var(--bg);padding:10px;gap:9px;min-height:70px}
-.item{flex:1 1 100%;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px;background:var(--card);transition:transform .15s,box-shadow .15s}
-.item:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
-.ph{width:62px;height:62px;border-radius:12px}
-.item b{font-size:14px}
-.badge{border:0;background:rgba(40,122,88,.10);padding:4px 9px;font-weight:650}
-.badge.warn{background:rgba(184,121,32,.12)}.badge.bad{background:rgba(189,81,72,.12)}
-.fab{right:clamp(18px,4vw,48px);bottom:24px;border-radius:16px;padding:15px 20px;box-shadow:0 12px 28px rgba(25,90,60,.25)}
-dialog{border-radius:22px;padding:22px;box-shadow:0 24px 80px rgba(0,0,0,.22);border:1px solid var(--line)}
-input,select{border-radius:12px;padding:12px 13px}
-.btns button{border-radius:12px;padding:12px;font-weight:650}
-.btns .pri{background:var(--acc);border-color:var(--acc)}
-#auth{max-width:460px!important;margin:7vh auto!important;padding:34px!important;background:var(--card);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow)}
-#auth h1{display:block;font-size:27px}
-#auth h2{font-size:22px;letter-spacing:-.03em}
-#shoppingView{display:none}
-body:not(.authenticated) > #mainNav,body:not(.authenticated) > #appContent{display:none}
-body.shopping-mode #shelves{display:none}
-body.shopping-mode #shoppingView{display:block}
-body.shopping-mode header #q,body.shopping-mode header #seg{display:none}
-.shopping-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
-.shopping-head h2{margin:0;font-size:23px;letter-spacing:-.04em}
-.shopping-form{display:flex;gap:9px;margin-bottom:16px}
-.shopping-form input{flex:1;min-width:0}
-.shopping-form button,.shopping-action{border:0;background:var(--acc);color:white;border-radius:12px;padding:0 17px;font-weight:700;cursor:pointer}
-.shopping-list{display:grid;gap:9px}
-.shopping-entry{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:15px;padding:13px 14px;box-shadow:var(--shadow)}
-.shopping-entry input[type=checkbox]{width:19px;height:19px;accent-color:var(--acc);flex:none}
-.shopping-entry .entry-name{flex:1;min-width:0;overflow-wrap:anywhere}
-.shopping-entry.done .entry-name{text-decoration:line-through;color:var(--mut)}
-.shopping-entry button{border:0;background:transparent;color:var(--mut);font-size:18px;cursor:pointer;padding:4px 7px}
-.shopping-empty{padding:36px 18px;text-align:center;color:var(--mut);background:var(--card);border:1px dashed var(--line);border-radius:18px}
-.shopping-count{font-size:12px;color:var(--mut);font-weight:650}
-@media(min-width:900px){#appContent{margin-top:28px}#shelves{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:600px){header{padding-top:17px}header>.btns{flex-wrap:wrap}header>.btns button{font-size:12px!important}#appContent{margin-top:16px}#shelves{grid-template-columns:1fr}.shelf{padding:13px}.shopping-form{flex-wrap:wrap}.shopping-form button{min-height:46px}}
-
-</style>
-</head>
-<body>
-
-<section id="auth" style="padding:30px 18px;max-width:440px;margin:20px auto">
-  <h1 style="font-size:24px;margin-bottom:8px">🥬 Vorratswelt</h1>
-  <h2 id="authTitle" style="font-size:19px">Willkommen!</h2>
-  <p id="authMsg" style="color:var(--mut)">Melde dich an oder erstelle ein Konto.</p>
-
-  <div id="loginBox">
-    <label for="authEmail">E-Mail-Adresse</label>
-    <input id="authEmail" type="email" autocomplete="email" placeholder="name@beispiel.de">
-    <label for="authPassword">Passwort</label>
-    <input id="authPassword" type="password" autocomplete="current-password" placeholder="Mindestens 8 Zeichen">
-    <div class="btns">
-      <button id="loginBtn" class="pri">Anmelden</button>
-      <button id="registerBtn">Registrieren</button>
-    </div>
-  </div>
-
-  <div id="familyBox" hidden>
-    <h3>Deinen Haushalt einrichten</h3>
-    <p>Erstelle einen gemeinsamen Haushalt. Die Vorräte werden anschließend online gespeichert.</p>
-    <label for="familyName">Familien- oder Haushaltsname</label>
-    <input id="familyName" placeholder="z. B. Familie Müller">
-    <div class="btns">
-      <button id="createFamilyBtn" class="pri">Haushalt erstellen</button>
-      <button id="logoutBtn">Abmelden</button>
-    </div>
-    <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
-    <h3>Du hast schon einen Einladungscode?</h3>
-    <label for="joinCodeFirst">Einladungscode</label>
-    <input id="joinCodeFirst" autocapitalize="characters" placeholder="z. B. A1B2C3D4">
-    <div class="btns"><button id="joinFamilyFirstBtn">Einer Familie beitreten</button></div>
-  </div>
-</section>
-
-<header>
-  <h1><span>🥬 Vorratswelt</span><span id="sync"></span></h1>
-  <div class="btns" style="display:flex;gap:8px;margin:4px 0 8px">
-    <button id="familyManage" type="button" style="flex:1;margin:0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer">👨‍👩‍👧 Familie verwalten / Mitglied einladen</button>
-    <button id="headerLogoutBtn" type="button" style="margin:0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer">↪ Abmelden</button>
-  </div>
-  <input id="q" type="search" placeholder="Suchen: Name, Marke, Barcode …">
-  <div class="seg" id="seg">
-    <button data-f="stock" class="on">Vorrätig</button>
-    <button data-f="all">Alle</button>
-    <button data-f="out">Aufgebraucht</button>
-  </div>
-</header>
-<nav id="mainNav" aria-label="Hauptnavigation">
-  <button type="button" class="active" data-view="pantry">🥬 Vorräte</button>
-  <button type="button" data-view="shopping">🛒 Einkaufsliste <span id="shoppingNavCount"></span></button>
-</nav>
-<div id="appContent">
-  <main id="shelves"></main>
-  <section id="shoppingView" aria-label="Einkaufsliste">
-    <div class="shopping-head">
-      <div><h2>Einkaufsliste</h2><div class="shopping-count" id="shoppingCount">Noch keine Artikel</div></div>
-      <button type="button" class="shopping-action" id="clearDone">Erledigte löschen</button>
-    </div>
-    <form class="shopping-form" id="shoppingForm">
-      <input id="shoppingInput" type="text" placeholder="Was möchtest du einkaufen?" autocomplete="off" aria-label="Neuer Einkaufsartikel">
-      <button type="submit">+ Hinzufügen</button>
-    </form>
-    <div class="shopping-list" id="shoppingList"></div>
-  </section>
-</div>
-<button class="fab" id="scan">📷 Scannen</button>
-<div id="toast"></div>
-
-<dialog id="dFamily">
-  <h2 style="margin:0 0 8px">👨‍👩‍👧 Familie & Einladungen</h2>
-  <p style="color:var(--mut);font-size:14px">Erstelle einen Einladungscode und gib ihn deiner Mutter oder deinem Vater. Jede Person meldet sich mit einer eigenen E-Mail-Adresse und einem eigenen Passwort an.</p>
-  <div class="btns"><button id="makeInviteBtn" class="pri">Einladungscode erstellen</button></div>
-  <div id="inviteOutput" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)">
-    <label>Dein Einladungscode (7 Tage gültig)</label>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input id="inviteCodeDisplay" readonly style="font-weight:700;letter-spacing:2px">
-      <button id="copyInviteBtn" type="button" style="padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card)">Kopieren</button>
-    </div>
-    <small style="color:var(--mut)">Der Code kann von bis zu 10 Personen verwendet werden.</small>
-  </div>
-  <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
-  <h3>Mit Einladungscode beitreten</h3>
-  <label for="joinCode">Einladungscode</label>
-  <input id="joinCode" autocapitalize="characters" placeholder="Code eingeben">
-  <div class="btns">
-    <button id="joinFamilyBtn" class="pri">Familie beitreten</button>
-    <button id="familyCloseBtn">Schließen</button>
-  </div>
-  <p id="familyMsg" style="font-size:13px;color:var(--mut)"></p>
-</dialog>
-
-<dialog id="dScan">
-  <div class="seg" id="modeSeg" style="margin:0 0 10px">
-    <button data-m="in" class="on">➕ Einlagern</button>
-    <button data-m="out">➖ Entnehmen</button>
-  </div>
-  <video id="vid" playsinline muted></video>
-  <div id="st">Kamera wird gestartet …</div>
-  <label>Oder Barcode eintippen</label>
-  <div class="stepper"><input id="manual" inputmode="numeric" placeholder="z. B. 4012345678901"><button id="mgo" style="width:auto;padding:0 14px;font-size:16px">OK</button></div>
-  <div class="btns"><button id="scanClose">Abbrechen</button></div>
-</dialog>
-
-<dialog id="dItem">
-  <div id="iHint" style="font-size:13px;color:var(--mut)"></div>
-  <div style="display:flex;gap:12px;align-items:flex-end;margin-top:8px">
-    <div id="photo" class="ph" title="Foto aufnehmen">📷</div>
-    <div style="flex:1"><label style="margin-top:0">Produktname</label><input id="fName"></div>
-  </div>
-  <input id="file" type="file" accept="image/*" capture="environment" hidden>
-  <label>Marke (optional)</label><input id="fBrand">
-  <label>Regal</label><select id="fShelf"></select>
-  <label>Bestand nach Haltbarkeit (MHD)</label>
-  <div id="bList"></div>
-  <button id="addB" style="width:100%;padding:9px;border:1px dashed var(--line);border-radius:10px;background:none;cursor:pointer">+ Weiteres MHD hinzufügen</button>
-  <div class="btns">
-    <button id="iSave" class="pri">Speichern</button>
-    <button id="addToShopping">🛒 Einkaufsliste</button>
-    <button id="iDel" class="del">Löschen</button>
-    <button id="iClose">Schließen</button>
-  </div>
-</dialog>
-
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-  // Zweiter CDN-Anbieter als Fallback, falls jsDelivr nicht erreichbar ist.
-  if (!window.supabase || typeof window.supabase.createClient !== "function") {
-    document.write('<script src="https://unpkg.com/@supabase/supabase-js@2"><\\/script>');
+(() => {
+  "use strict";
+
+  const $ = id => document.getElementById(id);
+  const KEY = "vorratsregal:extras:v2";
+
+  let data = { shopping: [], recipes: [], planner: {} };
+
+  try {
+    data = { ...data, ...JSON.parse(localStorage.getItem(KEY) || "{}") };
+  } catch (e) {}
+
+  const style = document.createElement("style");
+  style.textContent = `
+    body:not(.authenticated) #extraNav,
+    body:not(.authenticated) .extraPage { display:none !important; }
+
+    #extraNav {
+      display:flex; gap:7px; overflow-x:auto; padding:10px 14px;
+      background:var(--bg); position:sticky; top:0; z-index:4;
+      scrollbar-width:none;
+    }
+    #extraNav button {
+      flex:none; border:1px solid var(--line); border-radius:12px;
+      padding:10px 13px; background:var(--card); cursor:pointer;
+      font-size:13px; color:var(--ink);
+    }
+    #extraNav button.active {
+      background:var(--acc); color:white; border-color:var(--acc);
+    }
+    .extraPage { padding:14px; }
+    .extraPage h2 { font-size:22px; margin:8px 0 16px; }
+    .extraCard {
+      background:var(--card); border:1px solid var(--line);
+      border-radius:16px; padding:15px; margin-bottom:14px;
+    }
+    .extraCard h3 { margin:0 0 12px; font-size:16px; }
+    .extraStats {
+      display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px; margin-bottom:15px;
+    }
+    .extraStat {
+      background:var(--card); border:1px solid var(--line);
+      border-radius:15px; padding:15px;
+    }
+    .extraStat small { color:var(--mut); display:block; }
+    .extraStat strong { display:block; font-size:27px; margin-top:5px; }
+    .extraRow {
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px; padding:11px 0; border-bottom:1px solid var(--line);
+    }
+    .extraRow:last-child { border-bottom:0; }
+    .extraRow button {
+      border:1px solid var(--line); border-radius:9px;
+      background:var(--bg); padding:8px 11px; cursor:pointer;
+    }
+    .extraAdd { display:flex; gap:8px; margin-bottom:12px; }
+    .extraAdd input { flex:1; min-width:0; }
+    .extraPrimary {
+      width:100%; padding:12px; margin-top:10px;
+      border:0; border-radius:11px; background:var(--acc);
+      color:white; font-weight:700; cursor:pointer;
+    }
+    .extraPage textarea {
+      width:100%; padding:11px; border:1px solid var(--line);
+      border-radius:10px; background:var(--bg); color:var(--ink);
+      font:inherit; resize:vertical;
+    }
+    .extraPage label { margin-top:12px; }
+    .extraMeal {
+      background:var(--card); border:1px solid var(--line);
+      border-radius:12px; padding:12px; margin-bottom:9px;
+    }
+    .extraMeal strong { display:block; margin-bottom:7px; }
+    .extraMeal select { width:100%; }
+    .extraMuted { color:var(--mut); font-size:13px; }
+    #usbBarcode { font-size:18px; letter-spacing:1px; }
+  `;
+  document.head.appendChild(style);
+
+  const nav = document.createElement("nav");
+  nav.id = "extraNav";
+  nav.innerHTML = `
+    <button data-page="dashboard">🏠 Dashboard</button>
+    <button data-page="vorrat">🥫 Vorräte</button>
+    <button data-page="einkauf">🛒 Einkauf</button>
+    <button data-page="rezepte">🍲 Rezepte</button>
+    <button data-page="plan">📅 Essensplan</button>
+  `;
+  $("shelves").parentNode.insertBefore(nav, $("shelves"));
+
+  const pages = document.createElement("div");
+  pages.innerHTML = `
+    <section id="dashboard" class="extraPage">
+      <h2>Dein Dashboard</h2>
+      <div class="extraStats">
+        <div class="extraStat"><small>Produkte</small><strong id="xProducts">0</strong></div>
+        <div class="extraStat"><small>Einheiten</small><strong id="xUnits">0</strong></div>
+        <div class="extraStat"><small>Einkauf</small><strong id="xShopping">0</strong></div>
+        <div class="extraStat"><small>Bald ablaufend</small><strong id="xExpiry">0</strong></div>
+      </div>
+      <div class="extraCard">
+        <h3>⚠️ MHD im Blick behalten</h3>
+        <div id="xExpiryList"></div>
+      </div>
+      <div class="extraCard">
+        <h3>🛒 Deine Einkaufsliste</h3>
+        <div id="xShoppingPreview"></div>
+      </div>
+      <div class="extraCard">
+        <h3>🍲 Deine Rezepte</h3>
+        <div id="xRecipePreview"></div>
+      </div>
+    </section>
+
+    <section id="einkauf" class="extraPage" hidden>
+      <h2>🛒 Einkaufsliste</h2>
+      <div class="extraCard">
+        <div class="extraAdd">
+          <input id="xShopInput" placeholder="Produkt hinzufügen …">
+          <button id="xShopAdd" class="extraPrimary" style="width:55px;margin:0">+</button>
+        </div>
+        <div id="xShopList"></div>
+        <button id="xClearDone" class="extraPrimary">Erledigte entfernen</button>
+      </div>
+    </section>
+
+    <section id="rezepte" class="extraPage" hidden>
+      <h2>🍲 Meine Rezepte</h2>
+      <div class="extraCard">
+        <h3>Neues Rezept</h3>
+        <label>Rezeptname</label>
+        <input id="xRecipeName" placeholder="z. B. Gemüsepfanne">
+        <label>Zutaten – eine pro Zeile</label>
+        <textarea id="xIngredients" rows="5" placeholder="Kartoffeln&#10;Karotten&#10;Zwiebeln"></textarea>
+        <label>Zubereitung</label>
+        <textarea id="xInstructions" rows="4" placeholder="So wird es zubereitet …"></textarea>
+        <button id="xRecipeSave" class="extraPrimary">Rezept speichern</button>
+      </div>
+      <div id="xRecipeList"></div>
+    </section>
+
+    <section id="plan" class="extraPage" hidden>
+      <h2>📅 Wochenplaner</h2>
+      <p class="extraMuted">Plane deine Mahlzeiten für die Woche.</p>
+      <div id="xMealPlan"></div>
+    </section>
+
+    <section id="vorrat" class="extraPage" hidden>
+      <h2>🥫 Vorräte & Barcode-Scanner</h2>
+      <div class="extraCard">
+        <h3>🔌 USB-Barcode-Scanner</h3>
+        <p class="extraMuted">
+          Die meisten USB-Scanner funktionieren wie eine Tastatur.
+          Klicke ins Feld und scanne einen Barcode.
+        </p>
+        <label>Scan-Modus</label>
+        <select id="xUsbMode">
+          <option value="in">➕ Einlagern</option>
+          <option value="out">➖ Entnehmen</option>
+        </select>
+        <label>Barcode</label>
+        <input id="usbBarcode" placeholder="Hier scannen …" autocomplete="off">
+        <p id="xUsbStatus" class="extraMuted">Scanner wartet auf Eingabe.</p>
+        <button id="xUsbFocus" class="extraPrimary">Scanner aktivieren</button>
+      </div>
+    </section>
+  `;
+  nav.parentNode.insertBefore(pages, $("shelves"));
+
+  const save = () => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(data));
+    } catch (e) {
+      if (typeof toast === "function") toast("Speicher voll oder nicht verfügbar.");
+    }
+    refresh();
+  };
+
+  const escText = value => String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+  }[c]));
+
+  function showPage(page) {
+    document.querySelectorAll(".extraPage").forEach(section => {
+      section.hidden = section.id !== page;
+    });
+
+    $("shelves").hidden = page !== "vorrat";
+    $("scan").hidden = page !== "vorrat";
+
+    document.querySelectorAll("#extraNav button").forEach(button => {
+      button.classList.toggle("active", button.dataset.page === page);
+    });
+
+    if (page === "einkauf") renderShopping();
+    if (page === "rezepte") renderRecipes();
+    if (page === "plan") renderPlan();
+    if (page === "dashboard") refresh();
   }
-</script>
-<script>
-const SHELVES=["Konserven & Gläser","Nudeln, Reis & Getreide","Getränke","Gewürze & Öle","Süßes & Snacks","Frühstück & Backen","Sonstiges"];
-const LK="vorratsregal:v2";
-let P={},familyId=null,filter="stock",mode="in",cur=null,stream=null,reader=null,scanning=false,legacyP={};
-const $=id=>document.getElementById(id);
-const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-$("fShelf").innerHTML=SHELVES.map(s=>`<option>${esc(s)}</option>`).join("");
-function toast(t){const e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.display="none",3000)}
-const total=p=>(p.batches||[]).reduce((s,b)=>s+b.qty,0);
-function norm(p){const m={};(p.batches||[]).forEach(b=>{if(b.qty>0)m[b.mhd||""]=(m[b.mhd||""]||0)+b.qty});
-  p.batches=Object.keys(m).sort((a,b)=>(a||"9999").localeCompare(b||"9999")).map(k=>({mhd:k,qty:m[k]}));return p}
-function persistLocal(){
-  const key=familyId?LK+":"+familyId:LK;
-  try{localStorage.setItem(key,JSON.stringify(P))}catch(e){}
-}
-function setSync(t){$("sync").textContent=t}
 
-async function savep(p){
-  p.updated=Date.now();
-  P[p.id]=p;
-  render();
-  persistLocal();
-  if(!familyId)return;
-  setSync("☁️ speichert …");
-  const {error}=await sb.from("products").upsert({
-    family_id:familyId,
-    product_id:p.id,
-    data:p,
-    updated_at:new Date().toISOString()
-  },{onConflict:"family_id,product_id"});
-  if(error){
-    toast("Speichern fehlgeschlagen: "+error.message);
-    setSync("⚠️ Speicherfehler");
-  }else setSync("☁️ synchronisiert");
-}
-async function delp(id){
-  delete P[id];
-  render();
-  persistLocal();
-  if(!familyId)return;
-  const {error}=await sb.from("products").delete()
-    .eq("family_id",familyId).eq("product_id",id);
-  if(error){toast("Löschen fehlgeschlagen: "+error.message);setSync("⚠️ Löschfehler")}
-  else setSync("☁️ synchronisiert");
-}
-
-function mhdInfo(d){
-  if(!d)return{t:"kein MHD",c:""};
-  const days=Math.floor((new Date(d+"T12:00:00")-new Date())/864e5);
-  const f=new Date(d+"T12:00:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit"});
-  if(days<0)return{t:"abgelaufen "+f,c:"bad"};
-  if(days<=30)return{t:"bald: "+f,c:"warn"};
-  return{t:f,c:"ok"};
-}
-function render(){
-  const q=$("q").value.trim().toLowerCase();
-  const all=Object.values(P);
-  const list=all.filter(p=>{
-    const t=total(p);
-    if(filter==="stock"&&!t)return false;
-    if(filter==="out"&&t)return false;
-    return !q||(p.name+" "+p.brand+" "+p.code).toLowerCase().includes(q);
+  nav.addEventListener("click", e => {
+    const button = e.target.closest("[data-page]");
+    if (button) showPage(button.dataset.page);
   });
-  $("shelves").innerHTML=SHELVES.map(s=>{
-    const its=list.filter(p=>p.shelf===s).sort((a,b)=>a.name.localeCompare(b.name));
-    if(!its.length&&(q||filter!=="all"&&all.length))return "";
-    return `<section class="shelf"><h2>${esc(s)}</h2><div class="board">${
-      its.map(p=>{const t=total(p),first=p.batches[0],m=mhdInfo(first&&first.mhd),more=p.batches.length>1?` +${p.batches.length-1}`:"";
-        return `<button class="item ${t?"":"out"}" data-id="${esc(p.id)}">${(p.photo||p.photoUrl)?`<img class="ph" src="${p.photo||p.photoUrl}" alt="" onerror="this.outerHTML='<div class=ph>📦</div>'">`:'<div class="ph">📦</div>'}<div class="t"><b>${esc(p.name)}</b>${p.brand?`<small>${esc(p.brand)}</small>`:""}<div class="row"><span class="qty">${t?"× "+t:"leer"}</span>${t?`<span class="badge ${m.c}">${m.t}${more}</span>`:""}</div></div></button>`}).join("")||'<div class="empty">leer</div>'
-    }</div></section>`}).join("")||'<p class="empty" style="margin:30px 14px">Noch nichts im Regal. Tippe auf „Scannen“, um dein erstes Produkt hinzuzufügen.</p>';
-}
-$("shelves").onclick=e=>{const b=e.target.closest(".item");if(b)openItem(P[b.dataset.id])};
-$("q").oninput=render;
-$("seg").onclick=e=>{const b=e.target.closest("button");if(!b)return;filter=b.dataset.f;[...$("seg").children].forEach(x=>x.classList.toggle("on",x===b));render()};
-$("modeSeg").onclick=e=>{const b=e.target.closest("button");if(!b)return;mode=b.dataset.m;[...$("modeSeg").children].forEach(x=>x.classList.toggle("on",x===b))};
 
-/* Scanner */
-async function startScan(){
-  $("dScan").showModal();$("st").textContent="Kamera wird gestartet …";$("manual").value="";
-  try{
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
-    const v=$("vid");v.srcObject=stream;await v.play();scanning=true;
-    $("st").textContent="Halte den Barcode ins Bild …";
-    if("BarcodeDetector" in window){
-      const det=new BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e","code_128"]});
-      const loop=async()=>{if(!scanning)return;try{const r=await det.detect(v);if(r.length)return found(r[0].rawValue)}catch(e){}setTimeout(loop,200)};loop();
-    }else if(window.ZXing){
-      reader=new ZXing.BrowserMultiFormatReader();
-      const loop=async()=>{if(!scanning)return;try{const r=await reader.decodeFromVideoElement(v);if(r)return found(r.getText())}catch(e){}if(scanning)setTimeout(loop,200)};loop();
-    }else $("st").textContent="Scanner nicht verfügbar – bitte Barcode eintippen.";
-  }catch(e){$("st").textContent="Kein Kamerazugriff – bitte Barcode eintippen."}
-}
-function stopScan(){scanning=false;try{reader&&reader.reset()}catch(e){}reader=null;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
-$("scan").onclick=startScan;
-$("scanClose").onclick=()=>{stopScan();$("dScan").close()};
-$("dScan").addEventListener("cancel",stopScan);
-$("mgo").onclick=()=>{const c=$("manual").value.replace(/\D/g,"");if(c.length>=6)found(c)};
-
-function guessShelf(tags){
-  const t=(tags||[]).join(" ");
-  if(/beverage|drink|water|juice|beer|wine/.test(t))return SHELVES[2];
-  if(/pasta|rice|cereal|grain|noodle/.test(t))return SHELVES[1];
-  if(/canned|jar|vegetable|legume|tomato/.test(t))return SHELVES[0];
-  if(/spice|oil|condiment|sauce|herb/.test(t))return SHELVES[3];
-  if(/snack|sweet|chocolate|candy|biscuit/.test(t))return SHELVES[4];
-  if(/breakfast|flour|baking|sugar|spread/.test(t))return SHELVES[5];
-  return SHELVES[6];
-}
-async function found(code){
-  stopScan();$("dScan").close();
-  const p=P[code];
-  if(mode==="out"){
-    if(!p||!total(p)){toast(p?`„${p.name}“ ist nicht mehr vorrätig`:"Produkt unbekannt – nichts entnommen");return}
-    p.batches[0].qty--;norm(p);await savep(p);
-    toast(`− 1 ${p.name} · noch ${total(p)}`);return;
+  function inventory() {
+    return Object.values(P || {});
   }
-  if(p){openItem(p,true);return}
-  let n={id:code,code,name:"",brand:"",shelf:SHELVES[6],photo:"",photoUrl:"",batches:[]},hint="Produkt nicht gefunden – bitte Namen eintragen. Beim nächsten Scan wird es automatisch erkannt.";
-  try{
-    const ctl=new AbortController();setTimeout(()=>ctl.abort(),6000);
-    const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,categories_tags,image_front_small_url`,{signal:ctl.signal});
-    const j=await r.json();
-    if(j.status===1&&j.product&&j.product.product_name){n.name=j.product.product_name;n.brand=(j.product.brands||"").split(",")[0];n.shelf=guessShelf(j.product.categories_tags);n.photoUrl=j.product.image_front_small_url||"";hint="✓ Produkt erkannt (Open Food Facts) – bitte MHD ergänzen."+(n.photoUrl?" Foto übernommen – zum Ersetzen aufs Bild tippen.":" Kein Foto vorhanden – tippe aufs 📷 und mach selbst eins.")}
-  }catch(e){}
-  openItem(n,true,hint);
-}
 
-/* Produkt-Dialog */
-function openItem(p,addBatch,hint){
-  cur=JSON.parse(JSON.stringify(p));cur.batches=cur.batches||[];
-  if(addBatch)cur.batches.push({mhd:"",qty:1});
-  $("iHint").textContent=hint||(addBatch?"✓ Schon im Regal – neue Charge unten ergänzen.":"Barcode: "+(cur.code||"–"));
-  $("fName").value=cur.name;$("fBrand").value=cur.brand||"";$("fShelf").value=cur.shelf;
-  $("iDel").style.display=P[cur.id]?"":"none";
-  drawPhoto();drawBatches();$("dItem").showModal();
-}
-function drawPhoto(){$("photo").innerHTML=(cur.photo||cur.photoUrl)?`<img src="${cur.photo||cur.photoUrl}" style="width:100%;height:100%;border-radius:8px;object-fit:contain;object-position:center;background:#fff;padding:3px;box-sizing:border-box" alt="" onerror="this.outerHTML='📷'">`:"📷"}
-function drawBatches(){
-  $("bList").innerHTML=cur.batches.map((b,i)=>`<div class="batch"><input type="date" data-i="${i}" data-k="mhd" value="${b.mhd}"><div class="stepper"><button data-i="${i}" data-d="-1">−</button><input type="number" min="0" inputmode="numeric" data-i="${i}" data-k="qty" value="${b.qty}"><button data-i="${i}" data-d="1">+</button></div></div>`).join("")||'<div class="empty">Kein Bestand</div>';
-}
-$("bList").onclick=e=>{const b=e.target.closest("button");if(!b)return;const x=cur.batches[+b.dataset.i];x.qty=Math.max(0,x.qty+ +b.dataset.d);drawBatches()};
-$("bList").onchange=e=>{const t=e.target,x=cur.batches[+t.dataset.i];if(t.dataset.k==="mhd")x.mhd=t.value;else{x.qty=Math.max(0,+t.value||0);drawBatches()}};
-$("addB").onclick=()=>{cur.batches.push({mhd:"",qty:1});drawBatches()};
-$("photo").onclick=()=>$("file").click();
-$("file").onchange=e=>{
-  const f=e.target.files[0];if(!f)return;
-  const img=new Image();img.onload=()=>{
-    const s=Math.min(1,240/Math.max(img.width,img.height)),c=document.createElement("canvas");
-    c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
-    cur.photo=c.toDataURL("image/jpeg",.7);drawPhoto();URL.revokeObjectURL(img.src)};
-  img.src=URL.createObjectURL(f);e.target.value="";
-};
-$("iClose").onclick=()=>$("dItem").close();
-$("iSave").onclick=async()=>{
-  const name=$("fName").value.trim();if(!name){$("fName").focus();return}
-  Object.assign(cur,{name,brand:$("fBrand").value.trim(),shelf:$("fShelf").value});
-  if(!cur.id){cur.id="m"+Date.now();cur.code=""}
-  norm(cur);$("dItem").close();await savep(cur);
-};
-$("iDel").onclick=()=>{if(confirm("Produkt komplett löschen?")){$("dItem").close();delp(cur.id)}};
-
-/* Anmeldung, Haushalt und Supabase-Synchronisierung */
-const SUPABASE_URL="https://iqskwbrfuulvwtjvufig.supabase.co";
-const SUPABASE_KEY="sb_publishable_4nSIm16AxpZYLDZzdSUyPg_z7lTqcRw";
-
-if(!window.supabase || typeof window.supabase.createClient!=="function"){
-  $("authMsg").textContent="Die Anmeldung konnte nicht geladen werden. Bitte lade die Seite neu oder prüfe deine Internetverbindung. Falls das Problem bleibt, blockiert möglicherweise ein Browser- oder Datenschutzfilter die Supabase-Bibliothek.";
-  $("loginBtn").disabled=true;
-  $("registerBtn").disabled=true;
-}else{
-const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-
-let currentUser=null;
-let realtimeChannel=null;
-let openingFamily=false;
-
-function authMessage(message){
-  $("authMsg").textContent=message;
-}
-
-$("registerBtn").onclick=async()=>{
-  const email=$("authEmail").value.trim();
-  const password=$("authPassword").value;
-  if(!email||password.length<8){
-    authMessage("Bitte gib eine gültige E-Mail-Adresse und mindestens 8 Zeichen Passwort ein.");
-    return;
+  function productTotal(product) {
+    return (product.batches || []).reduce((sum, batch) => sum + Number(batch.qty || 0), 0);
   }
-  $("registerBtn").disabled=true;
-  const {data,error}=await sb.auth.signUp({email,password});
-  $("registerBtn").disabled=false;
-  if(error){authMessage(error.message);return;}
-  if(!data.session){
-    authMessage("Dein Konto wurde angelegt. Bitte bestätige zuerst die E-Mail-Adresse über den Link in deinem Postfach. Danach kannst du dich anmelden.");
-  }else{
-    authMessage("Konto erstellt. Du kannst jetzt deinen Haushalt einrichten.");
-    await handleSession(data.session);
+
+  function missingIngredients(recipe) {
+    const stocked = inventory()
+      .filter(product => productTotal(product) > 0)
+      .map(product => String(product.name || "").toLowerCase());
+
+    return recipe.ingredients.filter(ingredient => {
+      const name = ingredient.toLowerCase();
+      return !stocked.some(product => product.includes(name) || name.includes(product));
+    });
   }
-};
 
-$("loginBtn").onclick=async()=>{
-  const email=$("authEmail").value.trim();
-  const password=$("authPassword").value;
-  if(!email||!password){authMessage("Bitte E-Mail-Adresse und Passwort eingeben.");return;}
-  $("loginBtn").disabled=true;
-  const {data,error}=await sb.auth.signInWithPassword({email,password});
-  $("loginBtn").disabled=false;
-  if(error){authMessage(error.message);return;}
-  await handleSession(data.session);
-};
+  function refresh() {
+    const products = inventory();
+    const units = products.reduce((sum, p) => sum + productTotal(p), 0);
+    const stocked = products.filter(p => productTotal(p) > 0);
+    const expiry = [];
 
-$("createFamilyBtn").onclick=async()=>{
-  const name=$("familyName").value.trim();
-  if(!name){authMessage("Bitte gib einen Haushaltsnamen ein.");return;}
-  $("createFamilyBtn").disabled=true;
-  const {data,error}=await sb.rpc("create_family",{family_name:name});
-  $("createFamilyBtn").disabled=false;
-  if(error){authMessage("Haushalt konnte nicht erstellt werden: "+error.message);return;}
-  await connectFamily(data);
-};
+    products.forEach(product => {
+      (product.batches || []).forEach(batch => {
+        if (!batch.mhd || Number(batch.qty) <= 0) return;
+        const days = Math.floor(
+          (new Date(batch.mhd + "T12:00:00") - new Date()) / 86400000
+        );
+        if (days <= 30) expiry.push({
+          name: product.name,
+          date: batch.mhd,
+          days,
+          qty: batch.qty
+        });
+      });
+    });
 
-$("logoutBtn").onclick=async()=>{
-  const {error}=await sb.auth.signOut();
-  if(error)authMessage("Abmelden fehlgeschlagen: "+error.message);
-};
-$("headerLogoutBtn").onclick=async()=>{
-  const button=$("headerLogoutBtn");
-  button.disabled=true;
-  const {error}=await sb.auth.signOut();
-  button.disabled=false;
-  if(error)toast("Abmelden fehlgeschlagen: "+error.message);
-};
+    expiry.sort((a, b) => a.days - b.days);
 
-function familyMessage(message){
-  $("familyMsg").textContent=message;
-}
+    $("xProducts").textContent = stocked.length;
+    $("xUnits").textContent = units;
+    $("xShopping").textContent = data.shopping.filter(x => !x.done).length;
+    $("xExpiry").textContent = expiry.length;
 
-$("familyManage").onclick=()=>{
-  $("inviteOutput").style.display="none";
-  $("familyMsg").textContent="";
-  $("dFamily").showModal();
-};
-$("familyCloseBtn").onclick=()=>$("dFamily").close();
+    $("xExpiryList").innerHTML = expiry.length
+      ? expiry.map(item => `
+        <div class="extraRow">
+          <span>
+            <b>${escText(item.name)}</b><br>
+            <small>${item.days < 0 ? "Abgelaufen" : "Noch " + item.days + " Tage"}
+            · ${new Date(item.date + "T12:00:00").toLocaleDateString("de-DE")}</small>
+          </span>
+          <span>× ${item.qty}</span>
+        </div>
+      `).join("")
+      : '<p class="extraMuted">Alles im grünen Bereich! 🎉</p>';
 
-async function createInvite(){
-  if(!familyId){
-    familyMessage("Du bist noch keinem Haushalt zugeordnet.");
-    return;
+    const open = data.shopping.filter(x => !x.done);
+    $("xShoppingPreview").innerHTML = open.length
+      ? open.slice(0, 5).map(x => `
+        <div class="extraRow">${escText(x.name)} × ${x.qty || 1}</div>
+      `).join("")
+      : '<p class="extraMuted">Deine Einkaufsliste ist leer.</p>';
+
+    $("xRecipePreview").innerHTML = data.recipes.length
+      ? data.recipes.slice(0, 4).map(x => `<div class="extraRow">${escText(x.name)}</div>`).join("")
+      : '<p class="extraMuted">Noch keine Rezepte gespeichert.</p>';
   }
-  $("makeInviteBtn").disabled=true;
-  familyMessage("Einladungscode wird erstellt …");
-  const {data,error}=await sb.rpc("create_family_invite",{p_family_id:familyId});
-  $("makeInviteBtn").disabled=false;
-  if(error){
-    familyMessage("Einladung konnte nicht erstellt werden: "+error.message+" — Bitte führe zuerst das SQL-Setup aus.");
-    return;
-  }
-  const code=typeof data==="string" ? data : (data && (data.code || data.invite_code));
-  if(!code){
-    familyMessage("Der Server hat keinen Einladungscode zurückgegeben.");
-    return;
-  }
-  $("inviteCodeDisplay").value=code;
-  $("inviteOutput").style.display="block";
-  familyMessage("Fertig! Schicke diesen Code an deine Familienmitglieder.");
-}
-$("makeInviteBtn").onclick=createInvite;
 
-$("copyInviteBtn").onclick=async()=>{
-  const code=$("inviteCodeDisplay").value;
-  try{
-    await navigator.clipboard.writeText(code);
-    familyMessage("Einladungscode kopiert.");
-  }catch(e){
-    $("inviteCodeDisplay").select();
-    familyMessage("Code markiert. Du kannst ihn jetzt kopieren.");
-  }
-};
+  function addShopping(name) {
+    name = String(name || "").trim();
+    if (!name) return;
 
-async function joinFamily(codeValue, messageElement){
-  const code=(codeValue||"").trim().toUpperCase().replace(/\\s+/g,"");
-  if(!code){
-    if(messageElement==="family")familyMessage("Bitte gib einen Einladungscode ein.");
-    else authMessage("Bitte gib einen Einladungscode ein.");
-    return;
-  }
-  const button=messageElement==="family"?$("joinFamilyBtn"):$("joinFamilyFirstBtn");
-  button.disabled=true;
-  if(messageElement==="family")familyMessage("Beitritt wird geprüft …");
-  else authMessage("Einladungscode wird geprüft …");
-  const {data,error}=await sb.rpc("join_family_with_code",{p_code:code});
-  button.disabled=false;
-  if(error){
-    const msg="Beitritt fehlgeschlagen: "+error.message;
-    if(messageElement==="family")familyMessage(msg);
-    else authMessage(msg);
-    return;
-  }
-  const joinedFamilyId=typeof data==="string"?data:(data && (data.family_id||data.id));
-  if(!joinedFamilyId){
-    const msg="Der Server hat keine Haushalts-ID zurückgegeben.";
-    if(messageElement==="family")familyMessage(msg);
-    else authMessage(msg);
-    return;
-  }
-  if(messageElement==="family")$("dFamily").close();
-  $("auth").hidden=true;
-  await connectFamily(joinedFamilyId);
-}
-$("joinFamilyBtn").onclick=()=>joinFamily($("joinCode").value,"family");
-$("joinFamilyFirstBtn").onclick=()=>joinFamily($("joinCodeFirst").value,"auth");
+    const existing = data.shopping.find(x =>
+      !x.done && x.name.toLowerCase() === name.toLowerCase()
+    );
 
-async function handleSession(session){
-  if(!session){
-    currentUser=null;
-    familyId=null;
-    document.body.classList.remove("authenticated");
-    $("auth").hidden=false;
-    $("loginBox").hidden=false;
-    $("familyBox").hidden=true;
-    $("authTitle").textContent="Willkommen!";
-    authMessage("Melde dich an oder erstelle ein Konto.");
-    return;
+    if (existing) existing.qty = (existing.qty || 1) + 1;
+    else data.shopping.push({ id: Date.now() + Math.random(), name, qty: 1, done: false });
+
+    save();
+    renderShopping();
   }
-  currentUser=session.user;
-  $("auth").hidden=false;
-  $("loginBox").hidden=true;
-  $("familyBox").hidden=false;
-  $("authTitle").textContent="Haushalt einrichten";
-  authMessage("Dein Konto ist angemeldet. Erstelle einen Haushalt, um deine Vorräte zu synchronisieren.");
 
-  const {data,error}=await sb.from("family_members")
-    .select("family_id,role")
-    .eq("user_id",currentUser.id)
-    .limit(1)
-    .maybeSingle();
-
-  if(error){
-    authMessage("Haushaltszugriff konnte nicht geprüft werden: "+error.message);
-    return;
+  function renderShopping() {
+    $("xShopList").innerHTML = data.shopping.length
+      ? data.shopping.map(item => `
+        <div class="extraRow">
+          <label style="display:flex;align-items:center;gap:9px;margin:0;flex:1">
+            <input type="checkbox" data-shop-check="${item.id}"
+              ${item.done ? "checked" : ""} style="width:auto">
+            <span style="${item.done ? "text-decoration:line-through;opacity:.5" : ""}">
+              ${escText(item.name)} × ${item.qty || 1}
+            </span>
+          </label>
+          <button data-shop-delete="${item.id}">✕</button>
+        </div>
+      `).join("")
+      : '<p class="extraMuted">Noch keine Einkäufe eingetragen.</p>';
   }
-  if(data){
-    await connectFamily(data.family_id);
-  }
-}
 
-async function connectFamily(id){
-  if(openingFamily)return;
-  openingFamily=true;
-  try{
-    familyId=id;
-    setSync("☁️ lädt …");
+  $("xShopAdd").onclick = () => {
+    addShopping($("xShopInput").value);
+    $("xShopInput").value = "";
+    $("xShopInput").focus();
+  };
 
-    const {data,error}=await sb.from("products")
-      .select("product_id,data")
-      .eq("family_id",familyId);
+  $("xShopInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") $("xShopAdd").click();
+  });
 
-    if(error){
-      familyId=null;
-      authMessage("Vorräte konnten nicht geladen werden: "+error.message);
-      setSync("⚠️ Ladefehler");
+  $("xShopList").addEventListener("change", e => {
+    const id = e.target.dataset.shopCheck;
+    if (!id) return;
+    const item = data.shopping.find(x => String(x.id) === id);
+    if (item) item.done = e.target.checked;
+    save();
+    renderShopping();
+  });
+
+  $("xShopList").addEventListener("click", e => {
+    const id = e.target.dataset.shopDelete;
+    if (!id) return;
+    data.shopping = data.shopping.filter(x => String(x.id) !== id);
+    save();
+    renderShopping();
+  });
+
+  $("xClearDone").onclick = () => {
+    data.shopping = data.shopping.filter(x => !x.done);
+    save();
+    renderShopping();
+  };
+
+  $("xRecipeSave").onclick = () => {
+    const name = $("xRecipeName").value.trim();
+    const ingredients = $("xIngredients").value
+      .split("\n").map(x => x.trim()).filter(Boolean);
+    const instructions = $("xInstructions").value.trim();
+
+    if (!name || !ingredients.length) {
+      alert("Bitte gib einen Namen und mindestens eine Zutat ein.");
       return;
     }
 
-    const cloud={};
-    (data||[]).forEach(row=>{
-      cloud[row.product_id]={...row.data,id:row.product_id};
+    data.recipes.push({
+      id: Date.now(),
+      name,
+      ingredients,
+      instructions
     });
 
-    if(Object.keys(cloud).length===0){
-      let local={};
-      try{
-        local=JSON.parse(localStorage.getItem(LK+":"+familyId)||"null")||{};
-      }catch(e){}
-      if(!Object.keys(local).length)local=legacyP;
+    $("xRecipeName").value = "";
+    $("xIngredients").value = "";
+    $("xInstructions").value = "";
 
-      if(Object.keys(local).length&&confirm("Möchtest du deine bisher lokal gespeicherten Vorräte in diesen Haushalt übernehmen?")){
-        P=local;
-        const rows=Object.values(P).map(p=>({
-          family_id:familyId,
-          product_id:p.id,
-          data:p,
-          updated_at:new Date().toISOString()
-        }));
-        const {error:uploadError}=await sb.from("products")
-          .upsert(rows,{onConflict:"family_id,product_id"});
-        if(uploadError){
-          authMessage("Datenübernahme fehlgeschlagen: "+uploadError.message);
-          setSync("⚠️ Übernahmefehler");
-          return;
-        }
-      }else{
-        P={};
+    save();
+    renderRecipes();
+    if (typeof toast === "function") toast("Rezept gespeichert!");
+  };
+
+  function renderRecipes() {
+    $("xRecipeList").innerHTML = data.recipes.length
+      ? data.recipes.map(recipe => {
+        const missing = missingIngredients(recipe);
+        return `
+          <div class="extraCard">
+            <h3>🍽️ ${escText(recipe.name)}</h3>
+            <b>Zutaten</b>
+            <p>${recipe.ingredients.map(escText).join("<br>")}</p>
+            <b>Zubereitung</b>
+            <p>${escText(recipe.instructions || "Keine Zubereitung angegeben.")}</p>
+            <p class="extraMuted">
+              ${missing.length
+                ? "Fehlt noch: " + missing.map(escText).join(", ")
+                : "Alle Zutaten scheinen vorhanden zu sein! 🎉"}
+            </p>
+            <button class="extraPrimary" data-recipe-add="${recipe.id}">
+              Fehlende Zutaten einkaufen
+            </button>
+            <button data-recipe-delete="${recipe.id}"
+              style="width:100%;padding:10px;margin-top:7px;border:1px solid var(--line);border-radius:10px;background:var(--bg)">
+              Rezept löschen
+            </button>
+          </div>
+        `;
+      }).join("")
+      : '<p class="extraMuted">Du hast noch keine Rezepte gespeichert.</p>';
+  }
+
+  $("xRecipeList").addEventListener("click", e => {
+    const addId = e.target.dataset.recipeAdd;
+    const deleteId = e.target.dataset.recipeDelete;
+
+    if (addId) {
+      const recipe = data.recipes.find(x => String(x.id) === addId);
+      if (!recipe) return;
+      const missing = missingIngredients(recipe);
+      missing.forEach(addShopping);
+      if (typeof toast === "function") {
+        toast(missing.length ? "Zutaten zur Einkaufsliste hinzugefügt." : "Alles vorhanden!");
       }
-    }else{
-      P=cloud;
     }
 
-    document.body.classList.add("authenticated");
-    $("auth").hidden=true;
-    persistLocal();
-    render();
-    setSync("☁️ synchronisiert");
-
-    if(realtimeChannel){
-      await sb.removeChannel(realtimeChannel);
-      realtimeChannel=null;
+    if (deleteId) {
+      data.recipes = data.recipes.filter(x => String(x.id) !== deleteId);
+      save();
+      renderRecipes();
     }
+  });
 
-    realtimeChannel=sb.channel("family-products-"+familyId)
-      .on("postgres_changes",{
-        event:"*",
-        schema:"public",
-        table:"products",
-        filter:"family_id=eq."+familyId
-      },async()=>{
-        const activeFamily=familyId;
-        const {data:latest,error:refreshError}=await sb.from("products")
-          .select("product_id,data")
-          .eq("family_id",activeFamily);
-        if(refreshError||familyId!==activeFamily)return;
-        P={};
-        (latest||[]).forEach(row=>{
-          P[row.product_id]={...row.data,id:row.product_id};
-        });
-        persistLocal();
-        render();
-        setSync("☁️ live");
-      })
-      .subscribe(status=>{
-        if(status==="SUBSCRIBED")setSync("☁️ live");
-        if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")setSync("⚠️ Live-Sync gestört");
+  const days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag",
+    "Freitag", "Samstag", "Sonntag"];
+
+  function renderPlan() {
+    $("xMealPlan").innerHTML = days.map(day => `
+      <div class="extraMeal">
+        <strong>${day}</strong>
+        <select data-plan-day="${day}">
+          <option value="">Mahlzeit auswählen …</option>
+          ${data.recipes.map(recipe => `
+            <option value="${recipe.id}"
+              ${String(data.planner[day] || "") === String(recipe.id) ? "selected" : ""}>
+              ${escText(recipe.name)}
+            </option>
+          `).join("")}
+        </select>
+      </div>
+    `).join("");
+
+    $("xMealPlan").querySelectorAll("select").forEach(select => {
+      select.addEventListener("change", () => {
+        data.planner[select.dataset.planDay] = select.value;
+        save();
       });
-  }finally{
-    openingFamily=false;
+    });
   }
-}
 
-sb.auth.onAuthStateChange((event,session)=>{
-  if(event==="SIGNED_OUT"){
-    if(realtimeChannel){sb.removeChannel(realtimeChannel);realtimeChannel=null;}
-    familyId=null;
-    P={};
-    document.body.classList.remove("authenticated");
-    $("auth").hidden=false;
-    $("loginBox").hidden=false;
-    $("familyBox").hidden=true;
-    $("authTitle").textContent="Willkommen!";
-    authMessage("Du wurdest abgemeldet.");
-    render();
-    setSync("");
-  }
-});
+  $("xUsbFocus").onclick = () => {
+    $("usbBarcode").focus();
+    $("xUsbStatus").textContent = "Bereit – jetzt Barcode scannen.";
+  };
 
-(async()=>{
-  try{
-    const old=localStorage.getItem(LK);
-    if(old)legacyP=JSON.parse(old)||{};
-  }catch(e){}
-  render();
-  setSync("📱 lokal");
-  const {data,error}=await sb.auth.getSession();
-  if(error){
-    authMessage("Anmeldestatus konnte nicht geladen werden: "+error.message);
-    return;
-  }
-  if(data.session)await handleSession(data.session);
-})();
-} // Ende: Supabase-Bibliothek erfolgreich geladen
-</script>
+  $("usbBarcode").addEventListener("keydown", e => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
 
-<script>
-/* Einkaufsliste: bewusst lokal gespeichert, damit keine bestehende Supabase-Tabelle
-   oder Datenbankstruktur verändert werden muss. */
-(function(){
-  const KEY="vorratsregal:shopping:v1";
-  const $=id=>document.getElementById(id);
-  let entries=[];
-  try{entries=JSON.parse(localStorage.getItem(KEY)||"[]");if(!Array.isArray(entries))entries=[];}catch(e){entries=[];}
-  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(entries));}catch(e){} render();};
-  const esc=s=>String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  function render(){
-    const list=$("shoppingList");if(!list)return;
-    const open=entries.filter(x=>!x.done).length;
-    $("shoppingCount").textContent=entries.length?`${open} offen · ${entries.length-open} erledigt`:"Noch keine Artikel";
-    $("shoppingNavCount").textContent=open?`(${open})`:"";
-    list.innerHTML=entries.length?entries.map(x=>`<div class="shopping-entry ${x.done?"done":""}">
-      <input type="checkbox" data-check="${esc(x.id)}" ${x.done?"checked":""} aria-label="Erledigt">
-      <span class="entry-name">${esc(x.name)}${x.qty?` <span class="shopping-count">· ${esc(x.qty)}</span>`:""}</span>
-      <button type="button" data-remove="${esc(x.id)}" aria-label="Artikel löschen">×</button>
-    </div>`).join(""):'<div class="shopping-empty"><div style="font-size:30px;margin-bottom:8px">🛒</div><strong>Deine Einkaufsliste ist noch leer.</strong><div style="margin-top:5px">Füge oben deinen ersten Artikel hinzu.</div></div>';
-  }
-  $("shoppingForm").addEventListener("submit",e=>{
-    e.preventDefault();const input=$("shoppingInput"),name=input.value.trim();if(!name)return;
-    entries.unshift({id:"s"+Date.now()+Math.random().toString(16).slice(2,6),name,done:false});
-    input.value="";save();input.focus();
+    const code = $("usbBarcode").value.replace(/\D/g, "");
+    $("usbBarcode").value = "";
+
+    if (code.length < 6) {
+      $("xUsbStatus").textContent = "Der Barcode ist zu kurz.";
+      return;
+    }
+
+    $("xUsbStatus").textContent = "Barcode erkannt: " + code;
+
+    if (typeof found !== "function") {
+      $("xUsbStatus").textContent = "Die vorhandene Scan-Funktion wurde nicht gefunden.";
+      return;
+    }
+
+    mode = $("xUsbMode").value;
+    found(code);
   });
-  $("shoppingList").addEventListener("change",e=>{
-    const id=e.target.dataset.check;if(!id)return;
-    const item=entries.find(x=>x.id===id);if(item){item.done=e.target.checked;save();}
-  });
-  $("shoppingList").addEventListener("click",e=>{
-    const id=e.target.dataset.remove;if(!id)return;entries=entries.filter(x=>x.id!==id);save();
-  });
-  $("clearDone").addEventListener("click",()=>{entries=entries.filter(x=>!x.done);save();});
-  $("mainNav").addEventListener("click",e=>{
-    const btn=e.target.closest("button[data-view]");if(!btn)return;
-    const shopping=btn.dataset.view==="shopping";
-    document.body.classList.toggle("shopping-mode",shopping);
-    document.querySelectorAll("#mainNav button").forEach(x=>x.classList.toggle("active",x===btn));
-    $("scan").style.display=shopping?"none":"";
-  });
-  $("addToShopping").addEventListener("click",()=>{
-    const name=$("fName").value.trim();if(!name){$("fName").focus();return;}
-    const brand=$("fBrand").value.trim();
-    entries.unshift({id:"s"+Date.now(),name:brand?`${name} (${brand})`:name,done:false});
-    save();$("dItem").close();
-    const nav=document.querySelector('#mainNav button[data-view="shopping"]');if(nav)nav.click();
-  });
-  render();
+
+  // Dashboard nach Änderungen am Vorratsbestand aktualisieren.
+  const originalRender = render;
+  render = function() {
+    originalRender();
+    refresh();
+  };
+
+  renderShopping();
+  renderRecipes();
+  renderPlan();
+  refresh();
+  showPage("dashboard");
+
 })();
 </script>
-
-</body>
-</html>
